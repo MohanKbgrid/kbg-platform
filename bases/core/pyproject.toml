@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kbg-platform-core"
+version = "0.1.0"
+description = "Domain-free primitives enforcing the KBG Platform Surfaces canon's doctrines"
+requires-python = ">=3.10"
+dependencies = []          # deliberately none: drops into any stack, any ORM, any framework
+authors = [{ name = "KBG" }]
+
+[tool.setuptools.packages.find]
+where = ["src"]

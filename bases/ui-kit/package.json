@@ -1,0 +1,40 @@
+{
+  "name": "@kbg/ui-kit",
+  "version": "0.1.0",
+  "description": "The KBG visual and behavioural language \u2014 the eight states, the table contract, the floor layer. Artifact 3 of the Platform Surfaces canon.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./dist/tokens/tokens.css"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "typescript": "^5.6.3",
+    "react": "^18.3.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node test_states.mjs",
+    "prepare": "npm run build",
+    "verify": "node verify_consumable.mjs"
+  },
+  "module": "./dist/index.js",
+  "sideEffects": [
+    "*.css"
+  ]
+}

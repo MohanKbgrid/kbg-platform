@@ -1,0 +1,114 @@
+/* KBG design tokens — the visual half of the Experience surface (canon §06).
+ *
+ * Tokens, not components, are what make a family of products feel like one system. A project may
+ * re-skin by overriding the :root block; it should not redefine what a "state" or a "denial"
+ * looks like, because that is the part users carry between apps.
+ *
+ * Semantic colour is separate from brand accent ON PURPOSE. A dashboard that signals "critical"
+ * with the brand colour cannot also use the brand colour for anything neutral.
+ */
+:root {
+  /* Brand — the one a project overrides */
+  --kbg-accent:        #2f6f8f;
+  --kbg-accent-weak:   #e8f0f4;
+  --kbg-accent-strong: #1d4a60;
+
+  /* Ground + ink. Neutrals carry a slight hue toward the accent: a pure grey reads as
+     unconsidered next to a coloured accent. */
+  --kbg-bg:            #f7f8f9;
+  --kbg-surface:       #ffffff;
+  --kbg-ink:           #1b1f23;
+  --kbg-ink-muted:     #5b656e;
+  --kbg-line:          #dfe4e8;
+
+  /* Semantic — NOT the accent, and never reused for chrome */
+  --kbg-good:          #1f7a4d;
+  --kbg-warn:          #9a6700;
+  --kbg-critical:      #b42318;
+  --kbg-info:          #2f6f8f;
+  --kbg-good-weak:     #e7f4ed;
+  --kbg-warn-weak:     #fdf3e2;
+  --kbg-critical-weak: #fdeceb;
+
+  /* Type */
+  --kbg-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --kbg-font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
+  --kbg-text-sm: 13px;
+  --kbg-text-md: 14px;
+  --kbg-text-lg: 17px;
+
+  /* Space + shape */
+  --kbg-space-1: 4px;  --kbg-space-2: 8px;  --kbg-space-3: 12px;
+  --kbg-space-4: 16px; --kbg-space-5: 24px; --kbg-space-6: 32px;
+  --kbg-radius: 6px;
+  --kbg-shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+
+  /* ⛔ The floor layer's non-negotiable. Canon §06: a rep is standing up, one-handed, possibly
+     in the rain, with a shopkeeper waiting. Any interactive element on a floor screen must meet
+     this. It is a token so a lint can assert it rather than a reviewer having to notice. */
+  --kbg-touch-min: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-kbg-theme="light"]) {
+    --kbg-bg: #14181b; --kbg-surface: #1b2024; --kbg-ink: #e7ebee;
+    --kbg-ink-muted: #9aa5ae; --kbg-line: #2c343a;
+    --kbg-accent-weak: #1d2b33;
+    --kbg-good-weak: #14261d; --kbg-warn-weak: #2a2214; --kbg-critical-weak: #2b1917;
+  }
+}
+:root[data-kbg-theme="dark"] {
+  --kbg-bg: #14181b; --kbg-surface: #1b2024; --kbg-ink: #e7ebee;
+  --kbg-ink-muted: #9aa5ae; --kbg-line: #2c343a;
+  --kbg-accent-weak: #1d2b33;
+  --kbg-good-weak: #14261d; --kbg-warn-weak: #2a2214; --kbg-critical-weak: #2b1917;
+}
+
+/* ── the eight states ─────────────────────────────────────────────────────────────────── */
+.kbg-state { font-family: var(--kbg-font); font-size: var(--kbg-text-md);
+  color: var(--kbg-ink); padding: var(--kbg-space-5); border-radius: var(--kbg-radius); }
+.kbg-state__title { font-weight: 600; margin: 0 0 var(--kbg-space-2); }
+.kbg-state__body  { color: var(--kbg-ink-muted); margin: 0 0 var(--kbg-space-3); }
+.kbg-state__ref   { font-family: var(--kbg-font-mono); font-size: var(--kbg-text-sm); }
+
+.kbg-state--empty, .kbg-state--empty-filtered, .kbg-state--too-much {
+  text-align: center; background: var(--kbg-surface); border: 1px dashed var(--kbg-line); }
+/* Denied is INFORMATIVE, not alarming — the user did nothing wrong. */
+.kbg-state--denied   { background: var(--kbg-accent-weak); border-left: 3px solid var(--kbg-accent); }
+.kbg-state--partial  { background: var(--kbg-warn-weak);   border-left: 3px solid var(--kbg-warn); }
+.kbg-state--stale    { background: var(--kbg-warn-weak);   padding: var(--kbg-space-2) var(--kbg-space-3);
+                       font-size: var(--kbg-text-sm); }
+.kbg-state--error    { background: var(--kbg-critical-weak); border-left: 3px solid var(--kbg-critical); }
+.kbg-state--inline   { padding: var(--kbg-space-2) var(--kbg-space-3); }
+
+.kbg-skeleton-row { height: 18px; margin-bottom: var(--kbg-space-2); border-radius: 4px;
+  background: linear-gradient(90deg, var(--kbg-line) 25%, var(--kbg-bg) 37%, var(--kbg-line) 63%);
+  background-size: 400% 100%; animation: kbg-shimmer 1.3s ease-in-out infinite; }
+@keyframes kbg-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@media (prefers-reduced-motion: reduce) { .kbg-skeleton-row { animation: none; } }
+
+/* ── sync indicator: always present, quiet when synced, loud when not ─────────────────── */
+.kbg-sync { display: inline-flex; align-items: center; gap: var(--kbg-space-2);
+  font-family: var(--kbg-font); font-size: var(--kbg-text-sm); padding: var(--kbg-space-1) var(--kbg-space-3);
+  border-radius: 999px; }
+.kbg-sync__dot { width: 8px; height: 8px; border-radius: 50%; }
+.kbg-sync--synced  { color: var(--kbg-ink-muted); }
+.kbg-sync--synced  .kbg-sync__dot { background: var(--kbg-good); }
+.kbg-sync--syncing .kbg-sync__dot { background: var(--kbg-info); }
+.kbg-sync--queued  { background: var(--kbg-warn-weak); color: var(--kbg-warn); }
+.kbg-sync--queued  .kbg-sync__dot { background: var(--kbg-warn); }
+.kbg-sync--error   { background: var(--kbg-critical-weak); color: var(--kbg-critical); }
+.kbg-sync--error   .kbg-sync__dot { background: var(--kbg-critical); }
+.kbg-sync__count { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ── floor layer ──────────────────────────────────────────────────────────────────────── */
+.kbg-floor button, .kbg-floor [role="button"], .kbg-floor input, .kbg-floor select {
+  min-height: var(--kbg-touch-min); min-width: var(--kbg-touch-min);
+  font-size: var(--kbg-text-lg); }
+.kbg-floor { overflow-x: hidden; }   /* canon: no horizontal scrolling on a floor screen */
+
+.kbg-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--kbg-accent); outline-offset: 2px; }
