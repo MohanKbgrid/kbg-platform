@@ -5,7 +5,7 @@
 ## Purpose
 
 > *"Even the UI/UX should be similar across the projects going forward. I don't want to reinvent
-> every time."* — the product owner, 2026-08-16
+> every time."* — Mohan, 2026-08-16
 
 This surface is the **visual and behavioural language**, not a component library. Components are
 downstream of it. The point is that no project re-argues what an empty state looks like, what a
@@ -92,5 +92,6 @@ something that did not exist before (D6).
 | What | Why | Cost |
 |---|---|---|
 | ⛔ **"Pricing is central" is violated.** The field bill accepts a client-supplied `unit_price`; the pricing engine reads a table with 0 rows and no field path calls it. | Historical: capture was built before the pricing model was settled. | Every downstream number — scheme, discount, tax, margin, incentive — inherits whatever the client sent. **Open and unresolved.** |
-| The eight states are **not all distinctly implemented** — a shared `DataState` covers loading/empty/error; denied-with-reason, partial-failure, stale and too-much are not consistently present. | Screens predate the contract. | Denied actions are hidden rather than explained on the older screens. |
+| The eight states are **not all distinctly implemented** — a shared `DataState` covers loading/empty/error; partial-failure, stale and too-much are still absent. | Screens predate the contract. | Those three states fall back to a generic error or an empty list. |
+| ✅ **Closing:** the base's states are now **vendored and in use** (`src/vendor/kbg-ui-kit/`). `DeniedState` replaced a vanishing toast on Dispatch verification — the denial now persists with its reason and `whoCan`. Remaining screens follow as they are touched. | | |
 | _Conforms on_ — server-side rank-before-page (a real bug fixed), offline idempotency by client-minted id, a sync indicator that cannot report synced with a queue. | | |
