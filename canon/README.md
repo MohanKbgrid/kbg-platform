@@ -51,7 +51,7 @@ expected and is not propagated back.
 That is deliberate, and it follows from the thesis above. A shared library spanning unrelated
 products becomes either a lowest-common-denominator that fits none, or a "shared" package carrying
 per-project branches — worse than honest copies. Accounting settles it: one product's control
-accounts come from a one product's finance function, another's from a hospital. No abstraction usefully
+accounts come from a reference finance function, another's from a hospital. No abstraction usefully
 covers both.
 
 **What travels instead is this canon: the contracts, and the GATE TESTS.** When a bug in one
@@ -59,7 +59,7 @@ project reveals a missing *rule*, the rule goes into that surface's spec and its
 project then inherits the *test* while keeping its own implementation. That is what stops the same
 bug being rediscovered four times without re-coupling four codebases.
 
-### The line, restated precisely (Decision)
+### The line, restated precisely (the product owner 2026-08-17)
 
 > *"UI/UX, Integration and Accounting should only exist as common implementation PATTERNS — the
 > implementation itself will be project or tenant specific."*

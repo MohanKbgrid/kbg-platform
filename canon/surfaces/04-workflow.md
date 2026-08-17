@@ -88,4 +88,5 @@ SLAs are data · **D1** an unrouteable decision refuses rather than auto-approvi
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty)_ | | |
+| `work_item` / `work_item_event` hold **0 rows** | Nothing live raises work yet; the pilot has not run. | The queue's behaviour under real volume — the risk sort in particular — is proven only by fixtures. |
+| _Conforms on_ — callers raise without naming an approver, matrix-driven routing (19 rows), risk sort over the whole matched set before paging, availability sharing the write path's authority function, append-only audit. | | |

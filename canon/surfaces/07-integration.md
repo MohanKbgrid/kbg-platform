@@ -106,4 +106,5 @@ and a **retraction path**: a mapping the job no longer stands behind is closed o
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty)_ | | |
+| _Conforms._ The environment gate is proven three independent ways; unmapped codes refuse and name the gap; mappings are versioned with provenance and a retraction path; the outbox is idempotent on a source key; the state machine is the canon base, vendored. 83/83. | | |
+| The dispatcher's state machine is **vendored from `bases/core`**, not re-derived — and the base learned the held-does-not-consume-an-attempt rule *from this project*. | | |

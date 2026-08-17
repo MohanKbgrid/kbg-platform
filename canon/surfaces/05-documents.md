@@ -76,4 +76,4 @@ and asserting identical counts — not by trusting the retry logic.
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty)_ | | |
+| _Conforms._ 26 declared doc types, 4 requirements, required-blocking proven, generated artifacts stored, DUPLICATE reprints counted, atomic per-company/per-FY numbering (8 sequences). 96/96. | | |

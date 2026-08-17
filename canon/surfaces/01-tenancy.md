@@ -85,4 +85,6 @@ the value as a string. This is not exotic; it will happen on your first scoped l
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty — this project follows the canon)_ | | |
+| **64 of 93 `core` tables carry `company_id`** — not all of them | The rule adopted was "no NEW code without a tenant column", not a big-bang retrofit of an existing schema. Tables predating the decision were left. | Some are legitimately global (`company`, `entity_ref` — the shared identity spine). Others are **real gaps**: `customer_scheme`, `customer_offtake`, `dining_table`. A read on those cannot be tenant-scoped, so a second company's rows would be visible. |
+| **No row-level security. Zero RLS policies; enforcement is app-level only.** | RLS was deferred to the production-hardening step. | A query that bypasses the service layer is unscoped. The guard holds only as long as every reader goes through `tenant_ctx`. |
+| Gate 7 ("adding a third company requires no code change") **has never been run** | Only two companies exist. | The claim is untested. It is the real test of the surface and it is currently an assumption. |

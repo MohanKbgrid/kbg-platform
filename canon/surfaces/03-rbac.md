@@ -86,4 +86,6 @@ an unbuilt surface.
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty)_ | | |
+| ⛔ **The engine conforms but is NOT universally applied.** 13 of 30 routers reference the authority layer; the rest are gated only by `require_user` (authenticated, not authorised). | RBAC landed as step 02 of one slice; earlier routers were never retrofitted. | **Deny-by-default does not hold across the API.** An authenticated user reaching an ungated router is not permission-checked. This is the single largest divergence in this register. |
+| `principal_role` holds **0 rows** — no principal is bound to a role in this environment | Deliberate and evidence-based: role populations were seeded from real client data, but login binding waits on the client's role census. | The permission model is exercised by tests, not by real users. Correct for the build stage, but it means production behaviour is untested. |
+| _Conforms on_ — `can()` contract, scope-as-data, position-based roles, SoD conflicts, delegation with acted-for, decision logging (47/47). | | |

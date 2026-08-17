@@ -63,4 +63,5 @@ not a hypothetical — it is exactly what the specification had to be amended to
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty)_ | | |
+| Customer still lives in the transactional core with CRM-adjacent columns attached | Correct per the spec — **the extraction trigger has not fired.** No non-transactional team writes customer data, and CRM entities do not outnumber customers. | None yet. Re-assess when either trigger fires. |
+| _Conforms on_ — the `Lead → Staged → Approved → Active → Suspended` lifecycle exists, and seeded customers arrive Active rather than generating an approval task each. | | |

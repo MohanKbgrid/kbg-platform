@@ -108,4 +108,5 @@ Adapters are the only place domain vocabulary meets accounts. Two rules:
 
 | What | Why | Cost |
 |---|---|---|
-| _(empty)_ | | |
+| _Conforms, including all four items that cannot be retrofitted_ — `currency` on the voucher, per-company/per-fiscal-year `document_sequence`, open-item groundwork (`cleared_by_voucher_id` on lines), and `reverses_voucher_id`. Control accounts with dimensional sub-ledgers per the doctrine; validate-before-mutate (a real delete-before-validate hole was closed at zero callers); adapters refuse what they cannot represent. 104/104. | | |
+| Period certification is single, not dual (Accounts + MD) | The MD certification step is designed, not built. | A period can be closed without the second signature the spec asks for. |
