@@ -1,0 +1,86 @@
+/*
+  KB Grid theme tokens — the ONLY file that holds palette values.
+  Ink canvas, gold + jade accents, monospace labels. Primary accent is GOLD and secondary is
+  JADE. To change the palette, edit only this file.
+*/
+:root {
+  color-scheme: dark;
+
+  --bg: #15191b;
+  --bg-2: #1a1f21;
+  --panel: #1d2426;
+  --panel-2: #191f21;
+  --screen: #0f1416;
+  --line: #272e30;
+  --line-2: #313939;
+  --line-3: #3d4648;
+  --ink: #d3dad6;
+  --ink-2: #97a29c;
+  --ink-3: #68726d;
+
+  /* accents — role vocabulary stays fixed, values are ours */
+  --accent: #e0ae62; /* primary: gold */
+  --accent-hi: #ecc283;
+  --accent-ink: #1a1306;
+  --accent-2: #4bbe9b; /* secondary: jade */
+  --accent-2-hi: #63d0b0;
+  --accent-glow: rgba(224, 174, 98, 0.1);
+  --accent-2-glow: rgba(75, 190, 155, 0.1);
+  --danger: #e08976;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --maxw: 1240px;
+  --sans: "Helvetica Neue", Helvetica, "Segoe UI", system-ui, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --grid-line: rgba(255, 255, 255, 0.016);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #edf0ee;
+  --bg-2: #f4f6f4;
+  --panel: #ffffff;
+  --panel-2: #f7f9f7;
+  --screen: #070b0a;
+  --line: #dde3df;
+  --line-2: #cdd5d0;
+  --line-3: #b7c1bb;
+  --ink: #0b1210;
+  --ink-2: #4c5a54;
+  --ink-3: #7c8880;
+  --accent: #a9761a;
+  --accent-hi: #8f6211;
+  --accent-ink: #ffffff;
+  --accent-2: #0c8a63;
+  --accent-2-hi: #0fa277;
+  --accent-glow: rgba(169, 118, 26, 0.1);
+  --accent-2-glow: rgba(12, 138, 99, 0.12);
+  --grid-line: rgba(0, 0, 0, 0.022);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #edf0ee;
+    --bg-2: #f4f6f4;
+    --panel: #ffffff;
+    --panel-2: #f7f9f7;
+    --screen: #070b0a;
+    --line: #dde3df;
+    --line-2: #cdd5d0;
+    --line-3: #b7c1bb;
+    --ink: #0b1210;
+    --ink-2: #4c5a54;
+    --ink-3: #7c8880;
+    --accent: #a9761a;
+    --accent-hi: #8f6211;
+    --accent-ink: #ffffff;
+    --accent-2: #0c8a63;
+    --accent-2-hi: #0fa277;
+    --accent-glow: rgba(169, 118, 26, 0.1);
+    --accent-2-glow: rgba(12, 138, 99, 0.12);
+    --grid-line: rgba(0, 0, 0, 0.022);
+  }
+}
