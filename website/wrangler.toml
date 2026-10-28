@@ -1,0 +1,4 @@
+# Cloudflare Pages project config. Deploy with: npm run deploy
+name = "kbgrid-website"
+pages_build_output_dir = "out"
+compatibility_date = "2025-01-01"
