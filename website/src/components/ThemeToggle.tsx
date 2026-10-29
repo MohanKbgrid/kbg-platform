@@ -4,7 +4,7 @@ export default function ThemeToggle() {
   function toggle() {
     const root = document.documentElement;
     let cur = root.getAttribute("data-theme");
-    if (!cur) cur = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    if (!cur) cur = "dark";
     const next = cur === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
     try {
