@@ -15,16 +15,18 @@ export default function Header() {
           {site.name}
         </Link>
         <nav className={`navlinks${open ? " open" : ""}`}>
-          {site.nav.map((n) => (
-            <Link key={n.href} href={n.href} className="nl" onClick={() => setOpen(false)}>
-              {n.label}
-            </Link>
-          ))}
+          <div className="nl-group">
+            {site.nav.map((n) => (
+              <Link key={n.href} href={n.href} className="nl" onClick={() => setOpen(false)}>
+                {n.label}
+              </Link>
+            ))}
+          </div>
           <ThemeToggle />
           <Link href="/contact/" className="btn btn-primary">
             Talk to us
           </Link>
-          <button className="theme-toggle menu-btn" aria-label="Menu" onClick={() => setOpen(!open)}>
+          <button className="theme-toggle menu-btn" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(!open)}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
