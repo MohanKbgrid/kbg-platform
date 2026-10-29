@@ -3,7 +3,7 @@
 // designed to plug into all three. TODO(founder): confirm the status labels below.
 
 export type Status = "Live" | "In build" | "Design phase" | "Scaffold" | "Phase 1";
-export type Layer = "Ask AI" | "Ask UI" | "Sentinel";
+export type Layer = "Ask AI" | "Sentinel";
 
 export type Project = {
   slug: string;
@@ -49,7 +49,7 @@ export const projects: Project[] = [
       "Data checks first: monitors act on nothing while their data is failing",
     ],
     stack: "Python · Postgres · Sentinel overlay",
-    shipped: ["Sentinel", "Ask AI", "Ask UI"],
+    shipped: ["Sentinel", "Ask AI"],
   },
   {
     slug: "retail-pos",
@@ -112,11 +112,26 @@ export const projects: Project[] = [
     shipped: [],
   },
   {
+    slug: "p2p",
+    name: "P2P · Procure to Pay",
+    domain: "supply-chain",
+    status: "In build",
+    line: "Replenishment, purchasing and inbound receipt, with exceptions escalated by Sentinel.",
+    capabilities: [
+      "Replenishment and purchase orders driven from stock and sales data",
+      "Contracts and info records with gate tests on every rule",
+      "Inbound receipt matched to the order, with stale-data and exception escalation",
+    ],
+    // TODO(founder): confirm P2P status, capabilities and stack.
+    stack: "Python · Postgres · Sentinel overlay",
+    shipped: ["Sentinel"],
+  },
+  {
     slug: "fabrication-erp",
-    name: "Fabrication ERP",
+    name: "AuraFab",
     domain: "industrial",
     status: "Scaffold",
-    line: "Multi-tenant ERP for engineer-to-order fabrication.",
+    line: "Multi-tenant ERP for fabrication and manufacturing, engineer-to-order.",
     capabilities: [
       "Tenant isolation enforced in the database with row-level security",
       "Project-centred data model for engineer-to-order work",

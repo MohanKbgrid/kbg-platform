@@ -45,7 +45,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
           <div className="card">
             <span className="tag">Built on the platform</span>
             <p>
-              Designed on the Platform Canon and Core, with Ask AI, Ask UI and Sentinel built to plug in.
+              Designed on the Platform Canon and Core, with Ask AI and Sentinel built to plug in.
               {p.shipped.length ? ` Already shipped here: ${p.shipped.join(", ")}.` : ""}
             </p>
             <span className="tag" style={{ marginTop: 12 }}>

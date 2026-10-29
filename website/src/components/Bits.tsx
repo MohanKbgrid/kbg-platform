@@ -64,7 +64,6 @@ export function SubNav({ active }: { active: string }) {
     ["/platform/canon/", "Canon"],
     ["/platform/core/", "Core & UI kit"],
     ["/platform/intelligence/ask-ai/", "Ask AI"],
-    ["/platform/intelligence/ask-ui/", "Ask UI"],
     ["/platform/intelligence/sentinel/", "Sentinel"],
     ["/platform/adoption/", "Adoption"],
   ];

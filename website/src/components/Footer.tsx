@@ -19,7 +19,6 @@ export default function Footer() {
               <Link href="/platform/canon/">Canon</Link>
               <Link href="/platform/core/">Core</Link>
               <Link href="/platform/intelligence/ask-ai/">Ask AI</Link>
-              <Link href="/platform/intelligence/ask-ui/">Ask UI</Link>
               <Link href="/platform/intelligence/sentinel/">Sentinel</Link>
             </div>
             <div className="foot-col">

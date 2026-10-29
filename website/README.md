@@ -22,13 +22,12 @@ npm run build      # static export to ./out
 
 - **No client names.** Projects describe capabilities only. Check screenshots, sample data and URLs before adding any.
 - **Theme.** Ink canvas with gold primary and jade secondary, held in one tokens file. Do not reuse any customer's logo, name or copy.
-- **Intelligence layer.** Ask AI, Ask UI and Sentinel are presented as built to plug into every product. Project badges show only what is verified shipped in the repos.
+- **Intelligence layer.** Ask AI and Sentinel are presented as built to plug into every product. Project badges show only what is verified shipped in the repos.
 
 ## Open items (search for `TODO(founder)`)
 
 - Confirm status labels in `projects.ts` (NextGen and Foundation Management as "Live" are inferred).
-- "Ask UI" is interpreted as the review-card and approval interface (Sentinel's A2UI cards, WhatsApp). Confirm.
-- Real contact address, company story, team and location.
+- Real contact address, company story and location; confirm the team bios in `src/content/team.ts`.
 - Contact form handler, analytics, favicon, social image, logo.
 
 ## Deploy to Cloudflare Pages

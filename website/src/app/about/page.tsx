@@ -1,4 +1,5 @@
-import { Cta, PageHero } from "@/components/Bits";
+import { Cta, PageHero, SectionHead } from "@/components/Bits";
+import { team } from "@/content/team";
 
 export const metadata = { title: "About" };
 
@@ -27,7 +28,25 @@ export default function About() {
             </p>
           </div>
         </div>
-        {/* TODO(founder): add company story, team and location. */}
+        {/* TODO(founder): add company story and location. */}
+      </section>
+      <section className="blk alt">
+        <div className="wrap">
+          <SectionHead idx="THE TEAM" title="Who designs and builds it." />
+          <div className="grid g2">
+            {team.map((m) => (
+              <div className="card" key={m.name}>
+                <h3>{m.name}</h3>
+                <span className="tag">{m.role}</span>
+                <p>{m.bio}</p>
+              </div>
+            ))}
+            <div className="card">
+              <h3>Claude, built in</h3>
+              <p>AI is part of every step: design, the traceability register and an independent tester that checks each change against its requirements.</p>
+            </div>
+          </div>
+        </div>
       </section>
       <Cta />
     </>

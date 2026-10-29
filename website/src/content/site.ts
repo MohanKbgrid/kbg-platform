@@ -1,6 +1,6 @@
 export const site = {
   name: "KB Grid",
-  tagline: "One trusted AI foundation. Every domain built on it.",
+  tagline: "One trusted AI foundation. Every application on top of it.",
   // TODO(founder): confirm the real contact address and location before publishing.
   contactEmail: "hello@kbgrid.com",
   nav: [
