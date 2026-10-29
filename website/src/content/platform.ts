@@ -93,22 +93,8 @@ export const intelligence: Intel[] = [
       { k: "Answers from live data", v: "Natural-language questions answered over the product's own data and analytics." },
       { k: "Drafts, not decisions", v: "Reads invoices, photos and notes into a draft; a person accepts, edits or rejects." },
       { k: "Acts on request", v: "Approved tools such as creating an entry or sending a mail, always through guardrails." },
+      { k: "Review and approve in the conversation", v: "Cards show a case, its facts and the proposed action, routed by role, in the console or on WhatsApp. Every approval is attributed, limited and audited." },
       { k: "Measured", v: "Every invocation is recorded, and acceptance rate per capability is visible." },
-    ],
-  },
-  {
-    slug: "ask-ui",
-    name: "Ask UI",
-    line: "The interface where people review, approve and decide.",
-    body: [
-      "Review cards, approvals and structured results rendered inside the conversation, and reachable on WhatsApp, so a decision never needs a separate tool.",
-      "Reviews route to the right people by role and scope, with approval limits, escalation on SLA and an audit trail of every decision.",
-    ],
-    points: [
-      { k: "Cards in context", v: "A case, its facts and the proposed action in one card." },
-      { k: "Role-routed", v: "Work goes to a position, never to a named person." },
-      { k: "Signed decisions", v: "Every approval is attributed, limited and audited." },
-      { k: "Where people are", v: "In the console, in Ask AI, or on WhatsApp." },
     ],
   },
   {

@@ -42,7 +42,7 @@ export default async function DomainPage({ params }: { params: Promise<{ slug: s
 
       <section className="blk alt">
         <div className="wrap">
-          <SectionHead idx="ON THE PLATFORM" title="Ask AI, Ask UI and Sentinel included.">
+          <SectionHead idx="ON THE PLATFORM" title="Ask AI and Sentinel included.">
             Every product in this domain is built to plug into the intelligence layer, on top of the same canon and core.
           </SectionHead>
           <Link href="/platform/" className="btn btn-ghost">

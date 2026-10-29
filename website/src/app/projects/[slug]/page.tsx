@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cta, PageHero } from "@/components/Bits";
 import { domains } from "@/content/domains";
-import { projects, statusClass } from "@/content/projects";
+import { projects } from "@/content/projects";
 
 export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
@@ -23,7 +23,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
     <>
       <PageHero eyebrow={`Project · ${domain?.name ?? ""}`} title={p.name} lede={p.line}>
         <div className="row" style={{ marginTop: 22 }}>
-          <span className={`badge ${statusClass[p.status]}`}>{p.status}</span>
           {p.shipped.map((l) => (
             <span key={l} className="badge layer">
               {l} shipped
@@ -45,7 +44,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
           <div className="card">
             <span className="tag">Built on the platform</span>
             <p>
-              Designed on the Platform Canon and Core, with Ask AI, Ask UI and Sentinel built to plug in.
+              Designed on the Platform Canon and Core, with Ask AI and Sentinel built to plug in.
               {p.shipped.length ? ` Already shipped here: ${p.shipped.join(", ")}.` : ""}
             </p>
             <span className="tag" style={{ marginTop: 12 }}>

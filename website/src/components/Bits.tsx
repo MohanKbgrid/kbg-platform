@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { statusClass, type Project } from "@/content/projects";
+import type { Project } from "@/content/projects";
 
 export function SectionHead({ idx, title, children }: { idx?: string; title: string; children?: ReactNode }) {
   return (
@@ -44,7 +44,6 @@ export function ProjectCard({ p }: { p: Project }) {
   return (
     <Link href={`/projects/${p.slug}/`} className="card">
       <div className="row">
-        <span className={`badge ${statusClass[p.status]}`}>{p.status}</span>
         {p.shipped.map((l) => (
           <span key={l} className="badge layer">
             {l}
@@ -64,7 +63,6 @@ export function SubNav({ active }: { active: string }) {
     ["/platform/canon/", "Canon"],
     ["/platform/core/", "Core & UI kit"],
     ["/platform/intelligence/ask-ai/", "Ask AI"],
-    ["/platform/intelligence/ask-ui/", "Ask UI"],
     ["/platform/intelligence/sentinel/", "Sentinel"],
     ["/platform/adoption/", "Adoption"],
   ];

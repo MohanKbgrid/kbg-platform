@@ -7,7 +7,7 @@ import { site } from "@/content/site";
 export const metadata: Metadata = {
   title: { default: `${site.name} — ${site.tagline}`, template: `%s — ${site.name}` },
   description:
-    "KB Grid builds a trusted AI foundation — platform canon, core primitives, Ask AI, Ask UI and Sentinel — and the domain products built on it.",
+    "KB Grid builds a trusted AI foundation — platform canon, core primitives, Ask AI and Sentinel — and the domain products built on it.",
 };
 
 // Applies a stored theme before first paint to avoid a flash.

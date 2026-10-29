@@ -20,7 +20,7 @@ export default function Contact() {
                 {site.contactEmail}
               </a>
             </h3>
-            <p>A request form can replace this once a form handler is chosen.</p>
+            <p>Tell us your domain and what you want to run on the platform. We reply personally.</p>
           </div>
         </div>
       </section>

@@ -10,7 +10,7 @@ export default function Domains() {
       <PageHero
         eyebrow="Domains"
         title="The platform, applied."
-        lede="Each domain is the same foundation specialised for a kind of business, with Ask AI, Ask UI and Sentinel built to plug in."
+        lede="Each domain is the same foundation specialised for a kind of business, with Ask AI and Sentinel built to plug in."
       />
       <section className="blk">
         <div className="wrap grid g2">

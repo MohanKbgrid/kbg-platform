@@ -10,7 +10,7 @@ export default function Platform() {
       <PageHero
         eyebrow="Platform"
         title="The foundation every product inherits."
-        lede="A trust layer of contracts and gate tests, and an intelligence layer of Ask AI, Ask UI and Sentinel, plugged into every product."
+        lede="Primitives and levers every application sits on: KBG-Platform, KBG-Sentinel and Ask AI (DuckDB, pgvector, A2UI)."
       >
         <SubNav active="/platform/" />
       </PageHero>
@@ -26,19 +26,19 @@ export default function Platform() {
 
       <section className="blk alt">
         <div className="wrap">
-          <SectionHead idx="THE LAYERS" title="Two layers, one foundation." />
+          <SectionHead idx="THE LAYERS" title="Primitives and levers." />
           <div className="grid g2">
             <div className="card">
-              <span className="tag">Intelligence layer</span>
-              <h3>Ask AI · Ask UI · Sentinel</h3>
-              <p>The assistant, the interface where people decide, and the agents that handle exceptions. Built to plug into every product.</p>
+              <span className="tag">Levers</span>
+              <h3>KBG-Sentinel · Ask AI</h3>
+              <p>Insight to action and insight to strategy: agents that handle exceptions, and an assistant on DuckDB, pgvector and A2UI cards.</p>
               <Link href="/platform/intelligence/ask-ai/" className="more">
                 Explore &rarr;
               </Link>
             </div>
             <div className="card">
-              <span className="tag">Trust layer</span>
-              <h3>Canon · Core · UI kit</h3>
+              <span className="tag">Primitives</span>
+              <h3>KBG-Platform: Canon · Core · UI kit</h3>
               <p>The contracts, gate tests, primitives and visual language that make everything above it safe to rely on.</p>
               <Link href="/platform/canon/" className="more">
                 Explore &rarr;
