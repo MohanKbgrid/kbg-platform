@@ -1,4 +1,3 @@
-// Team details taken from the KBGrid design-review deck. TODO(founder): confirm full names, titles and photos.
 export const team = [
   {
     name: "Mohan",

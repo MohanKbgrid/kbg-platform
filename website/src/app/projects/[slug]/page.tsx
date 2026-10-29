@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cta, PageHero } from "@/components/Bits";
 import { domains } from "@/content/domains";
-import { projects, statusClass } from "@/content/projects";
+import { projects } from "@/content/projects";
 
 export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
@@ -23,7 +23,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
     <>
       <PageHero eyebrow={`Project · ${domain?.name ?? ""}`} title={p.name} lede={p.line}>
         <div className="row" style={{ marginTop: 22 }}>
-          <span className={`badge ${statusClass[p.status]}`}>{p.status}</span>
           {p.shipped.map((l) => (
             <span key={l} className="badge layer">
               {l} shipped

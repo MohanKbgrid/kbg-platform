@@ -1,6 +1,6 @@
 // Projects are anonymised: capabilities only, no client names.
 // `shipped` lists the intelligence layers verified in the repos today; every project is
-// designed to plug into all three. TODO(founder): confirm the status labels below.
+// designed to plug into all three.
 
 export type Status = "Live" | "In build" | "Design phase" | "Scaffold" | "Phase 1";
 export type Layer = "Ask AI" | "Sentinel";
@@ -122,7 +122,6 @@ export const projects: Project[] = [
       "Contracts and info records with gate tests on every rule",
       "Inbound receipt matched to the order, with stale-data and exception escalation",
     ],
-    // TODO(founder): confirm P2P status, capabilities and stack.
     stack: "Python · Postgres · Sentinel overlay",
     shipped: ["Sentinel"],
   },

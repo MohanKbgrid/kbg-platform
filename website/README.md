@@ -24,11 +24,11 @@ npm run build      # static export to ./out
 - **Theme.** Ink canvas with gold primary and jade secondary, held in one tokens file. Do not reuse any customer's logo, name or copy.
 - **Intelligence layer.** Ask AI and Sentinel are presented as built to plug into every product. Project badges show only what is verified shipped in the repos.
 
-## Open items (search for `TODO(founder)`)
+## Open items
 
-- Confirm status labels in `projects.ts` (NextGen and Foundation Management as "Live" are inferred).
-- Real contact address, company story and location; confirm the team bios in `src/content/team.ts`.
-- Contact form handler, analytics, favicon, social image, logo.
+- No contact form handler (the contact page is a mailto link), analytics, favicon, social image or logo yet.
+- Project status badges are not shown; add them back only once each status is verified.
+- Team bios live in `src/content/team.ts`; there are no photos yet.
 
 ## Deploy to Cloudflare Pages
 

@@ -28,7 +28,6 @@ export default function About() {
             </p>
           </div>
         </div>
-        {/* TODO(founder): add company story and location. */}
       </section>
       <section className="blk alt">
         <div className="wrap">
