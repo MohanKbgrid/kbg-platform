@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory() as work:
     target = Path(work) / "site"
     r = subprocess.run([sys.executable, "-m", "pip", "install", ".", "--target", str(target),
                         "--quiet", "--no-deps", "--no-build-isolation"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, cwd=Path(__file__).resolve().parent)
     t("pip install of the package succeeds", r.returncode == 0, r.stderr.strip()[:70])
     t("the package directory is installed", (target / "kbg_platform_core").is_dir())
     dist = list(target.glob("kbg_platform_core-*.dist-info"))
@@ -56,6 +56,7 @@ out = {
     "file": k.__file__,
     "version": k.__version__,
     "exports": len(k.__all__),
+    "missing": [n for n in k.__all__ if not hasattr(k, n)],
     "gap_raises": raised,
     "held": Outbox(Mode.UAT, type("S", (), {"get": lambda s, a, b: None,
                                             "upsert": lambda s, r: r})()).enqueue(
@@ -75,7 +76,8 @@ print(json.dumps(out))
         t("...and it resolved to the INSTALL, not to ./src",
           here not in info["file"].replace("\\", "/"), info["file"][-52:])
         t("version is exposed", info["version"] == "0.1.0", info["version"])
-        t("every public symbol is importable", info["exports"] == 20, str(info["exports"]))
+        t("every public symbol is importable", info["exports"] >= 22 and not info["missing"],
+          f"{info['exports']} exported, missing={info['missing']}")
         t("D4 survives packaging: Gap.value still raises", info["gap_raises"])
         t("the environment gate survives packaging: UAT holds", info["held"] == "held")
         t("deny-by-default survives packaging", info["deny_by_default"])
