@@ -10,13 +10,14 @@ Run: python test_core.py
 """
 from __future__ import annotations
 
+import asyncio
 import sys
 import uuid
 
 sys.path.insert(0, "src")
 
 from kbg_platform_core.outbox import RetryPolicy, decide
-from kbg_platform_core import (BLOCK_KINDS, NO_RULE, Authority, Decision, Gap, GapError, Mode, Outbox, OutboxRow,
+from kbg_platform_core import (AsyncOutbox, BLOCK_KINDS, NO_RULE, Authority, Decision, Gap, GapError, Mode, Outbox, OutboxRow,
                                PermissionDenied, Resolved, State, VersionedRecord,
                                VersionedWriter, capture_id, gaps)
 from kbg_platform_core.testkit import (ControlNotProven, assert_advanced,
@@ -243,6 +244,133 @@ box_uat = Outbox(Mode.UAT, MemStore())
 hr = box_uat.held_result()
 check("held_result feeds decide() directly", decide(result=hr, attempts=0).counts_as, "held")
 check("...and names the mode for the reader", hr["mode"], "uat")
+
+
+# ── Integration gate 8 (R1) + gate 9: sync and async Outbox over ONE decide() ───────────────
+print("\n[R1] the first enqueue of a new key writes exactly one row, sync OR async")
+
+
+class AMemStore:
+    """An ASYNC in-memory store: every method is a coroutine, as with an async ORM."""
+
+    def __init__(self):
+        self.rows: dict[tuple, OutboxRow] = {}
+
+    async def get(self, topic, source_key):
+        return self.rows.get((topic, source_key))
+
+    async def upsert(self, row):
+        self.rows[(row.topic, row.source_key)] = row
+        return row
+
+
+def naive_enqueue(box, *, topic, source_key, payload):
+    """The defect, reproduced: the sync recipe pointed at an async store. `existing` is an
+    un-awaited coroutine (always truthy, never None), so the 'already exists' branch runs on the
+    FIRST enqueue and nothing is written. This is what the guard in Outbox exists to stop."""
+    existing = box.store.get(topic, source_key)
+    if existing is not None:
+        return existing
+    return box.store.upsert(OutboxRow(topic, source_key, payload))
+
+
+async def r1_async():
+    ast = AMemStore()
+    abox = AsyncOutbox(Mode.PRODUCTION, ast)
+    first = await abox.enqueue(topic="t", source_key="K1", payload={"n": 1})
+    check("async: the first enqueue of a new key writes EXACTLY ONE row", len(ast.rows), 1)
+    check("...in the queued state", first.state, State.QUEUED)
+    second = await abox.enqueue(topic="t", source_key="K1", payload={"n": 1})
+    check("async: the same key again returns the SAME row", second is first, True)
+    check("...and the store still holds exactly one", len(ast.rows), 1)
+    await abox.enqueue(topic="t", source_key="K2", payload={})
+    check("a different key is a different row", len(ast.rows), 2)
+    try:
+        await abox.enqueue(topic="t", source_key="", payload={})
+        check("async: an empty source key is refused", "no raise", "ValueError")
+    except ValueError:
+        check("async: an empty source key is refused", "ValueError", "ValueError")
+
+    # the defect itself, planted: the naive recipe loses the first enqueue
+    bst = AMemStore()
+    lost = naive_enqueue(Outbox(Mode.PRODUCTION, bst), topic="t", source_key="K", payload={})
+    lost.close()
+    check("PLANTED DEFECT: a sync recipe over an async store writes ZERO rows", len(bst.rows), 0)
+
+    # the guard: the real sync Outbox refuses that combination instead of losing the row
+    gst = AMemStore()
+    try:
+        Outbox(Mode.PRODUCTION, gst).enqueue(topic="t", source_key="K", payload={})
+        check("sync Outbox over an async store is refused", "no raise", "TypeError")
+    except TypeError as e:
+        check("sync Outbox over an async store is refused, naming AsyncOutbox",
+              "AsyncOutbox" in str(e), True)
+    check("...and it wrote nothing, rather than pretending", len(gst.rows), 0)
+
+    # gate 9: a held row consumes no attempt, and sends once the gate opens
+    hst = AMemStore()
+    uat_box = AsyncOutbox(Mode.UAT, hst)
+    h = await uat_box.enqueue(topic="t", source_key="H1", payload={})
+    check("UAT holds the new row", h.state, State.HELD)
+    for _ in range(7):
+        await uat_box.settle(h, uat_box.held_result())
+    check("held through 7 drains: attempts still 0", h.attempts, 0)
+    check("...and still HELD, so it can be re-driven", h.state, State.HELD)
+    check("release_held is a no-op while the gate is shut",
+          (await uat_box.release_held(h)).state, State.HELD)
+    prod_box = AsyncOutbox(Mode.PRODUCTION, hst)
+    await prod_box.release_held(h)
+    check("flip the mode: the SAME row is queued", (h.state, h.attempts), (State.QUEUED, 0))
+    await prod_box.settle(h, {"ok": True})
+    check("a real send confirms and counts exactly one attempt",
+          (h.state, h.attempts), (State.CONFIRMED, 1))
+    check("the store holds that same row, still one", len(hst.rows), 1)
+
+    # a failure is recorded with its error, then dead-letters at the policy ceiling
+    fst = AMemStore()
+    fbox = AsyncOutbox(Mode.PRODUCTION, fst, RetryPolicy(max_attempts=2))
+    f = await fbox.enqueue(topic="t", source_key="F1", payload={})
+    await fbox.settle(f, {"ok": False, "error": "502 from far side"})
+    check("first failure: FAILED, error recorded, one attempt",
+          (f.state, f.last_error, f.attempts), (State.FAILED, "502 from far side", 1))
+    await fbox.settle(f, {"ok": False, "error": "502 again"})
+    check("second failure reaches the policy ceiling: DEAD_LETTER", f.state, State.DEAD_LETTER)
+    try:
+        await fbox.mark_failed(f, "")
+        check("async mark_failed with no error is refused", "no raise", "ValueError")
+    except ValueError:
+        check("async mark_failed with no error is refused", "ValueError", "ValueError")
+
+
+asyncio.run(r1_async())
+
+print("\n[one decide()] sync and async front doors give the same verdict on the same inputs")
+results = [{"held": True}, {"ok": False, "error": "e1"}, {"ok": False, "error": "e2"},
+           {"ok": True}]
+sbox = Outbox(Mode.PRODUCTION, MemStore())
+srow = sbox.enqueue(topic="t", source_key="S", payload={})
+
+
+async def drive_async():
+    abox = AsyncOutbox(Mode.PRODUCTION, AMemStore())
+    arow = await abox.enqueue(topic="t", source_key="S", payload={})
+    trail = []
+    for r in results:
+        await abox.settle(arow, r)
+        trail.append((arow.state.value, arow.attempts))
+    return trail
+
+
+strail = []
+for r in results:
+    sbox.settle(srow, r)
+    strail.append((srow.state.value, srow.attempts))
+check("same state/attempt trail through held, fail, fail, ok", strail, asyncio.run(drive_async()))
+check("...and the trail is the decide() trail",
+      strail, [("queued", 0), ("failed", 1), ("failed", 2), ("confirmed", 3)])
+check("sync settle on a HELD row leaves it held with 0 attempts",
+      (lambda b: (b.settle(b.enqueue(topic="t", source_key="Z", payload={}), b.held_result())
+                  .state.value))(Outbox(Mode.DEV, MemStore())), "held")
 
 
 # ── D2: supersede, never update ────────────────────────────────────────────────────────────

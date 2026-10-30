@@ -11,10 +11,17 @@ real `HELD` state that can be listed, counted and released. It must never stub a
 returning success is how a false green reaches production, and this programme has the scar.
 
 The store is injected. This package does not know your ORM; it knows the state machine.
+
+TWO FRONT DOORS, ONE STATE MACHINE. `Outbox` is for a synchronous store, `AsyncOutbox` for an
+asynchronous one (an async ORM). Both are thin: the rules live in `decide()` and in the shared
+`_OutboxCore`, so the two cannot drift. A product with an async store must use `AsyncOutbox`;
+the synchronous `Outbox` REFUSES an async store loudly (see `_refuse_awaitable`) instead of
+treating an un-awaited lookup as "the row already exists".
 """
 from __future__ import annotations
 
 import enum
+import inspect
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol
 
@@ -122,44 +129,57 @@ class OutboxStore(Protocol):
     def upsert(self, row: OutboxRow) -> OutboxRow: ...
 
 
-class Outbox:
-    def __init__(self, mode: Mode, store: OutboxStore) -> None:
+class AsyncOutboxStore(Protocol):
+    """The same contract for an asynchronous store. Used by `AsyncOutbox` only."""
+
+    async def get(self, topic: str, source_key: str) -> Optional[OutboxRow]: ...
+    async def upsert(self, row: OutboxRow) -> OutboxRow: ...
+
+
+def _refuse_awaitable(value: Any, what: str) -> None:
+    """⛔ R1 (Integration gate 8). A synchronous caller meeting an asynchronous store gets back an
+    un-awaited coroutine from `get()`. A coroutine is ALWAYS truthy and never None, so
+    `if existing is not None` takes the "row already exists" branch on the very FIRST enqueue,
+    returns a coroutine as if it were a row, and nothing is ever written. The outbox then looks
+    healthy and only a count of rows shows the loss. Refuse it, loudly, at the point of contact."""
+    if inspect.isawaitable(value):
+        if inspect.iscoroutine(value):
+            value.close()          # silence "coroutine was never awaited"; we are refusing it
+        raise TypeError(
+            f"outbox store.{what}() returned an awaitable: this is a synchronous Outbox over an "
+            f"asynchronous store. Use AsyncOutbox, which awaits every store call. (Reading an "
+            f"un-awaited coroutine as 'the row exists' silently drops the first enqueue.)")
+
+
+class _OutboxCore:
+    """Everything that is NOT a store call: validation, the held decision, the gate report, and
+    applying a `decide()` transition to a row. Shared by `Outbox` and `AsyncOutbox`."""
+
+    def __init__(self, mode: Mode, store: Any, policy: Optional[RetryPolicy] = None) -> None:
         self.mode = mode
         self.store = store
+        self.policy = policy or RetryPolicy()
 
-    def enqueue(self, *, topic: str, source_key: str, payload: dict[str, Any]) -> OutboxRow:
-        """Queue an outbound document — or HOLD it, if this environment may not send.
-
-        Re-enqueuing the same (topic, source_key) returns the EXISTING row rather than creating a
-        second one. A retry after a timeout therefore cannot produce two documents at the far side,
-        which is the failure D3 exists to prevent.
-        """
+    @staticmethod
+    def _require_key(source_key: str) -> None:
         if not source_key:
             raise ValueError(
                 "source_key is required: idempotency is by SOURCE key, so an outbound document "
                 "without one cannot be safely retried")
 
-        existing = self.store.get(topic, source_key)
-        if existing is not None:
-            return existing
-
+    def _new_row(self, topic: str, source_key: str, payload: dict[str, Any]) -> OutboxRow:
         row = OutboxRow(topic=topic, source_key=source_key, payload=payload)
         if not self.mode.may_send:
             row.state = State.HELD
             row.held_reason = (
                 f"integration_mode={self.mode.value}: outbound writes are held, not sent. "
                 f"The row is real and releasable — nothing was faked and nothing was dropped.")
-        return self.store.upsert(row)
+        return row
 
     def release_check(self) -> dict[str, Any]:
         """What a gate test asserts against. Deliberately returns the MODE rather than a boolean,
         so a test can assert the specific environment and not merely 'something is off'."""
         return {"mode": self.mode.value, "maySend": self.mode.may_send}
-
-    def mark_confirmed(self, row: OutboxRow, detail: Optional[dict] = None) -> OutboxRow:
-        row.state = State.CONFIRMED
-        row.detail.update(detail or {})
-        return self.store.upsert(row)
 
     def held_result(self) -> dict[str, Any]:
         """What a handler returns when the gate is shut. Shaped so `decide()` reads it, and so a
@@ -168,11 +188,117 @@ class Outbox:
                 "held_reason": f"integration_mode={self.mode.value}: outbound writes are held, "
                                f"not sent. Nothing was faked and nothing was dropped."}
 
-    def mark_failed(self, row: OutboxRow, error: str) -> OutboxRow:
-        """A failure is RECORDED, never swallowed (D7). `error` is required."""
+    def _apply(self, row: OutboxRow, result: dict[str, Any]) -> Transition:
+        """Run `decide()` and apply it. The ONLY place a row's state follows from a result.
+
+        A held result changes NOTHING about the attempt count and does not move the row out of
+        its HELD/QUEUED state; it only refreshes the reason. Every other outcome follows the
+        transition, and a recorded failure always carries its error (D7)."""
+        t = decide(result=result, attempts=row.attempts, policy=self.policy)
+        if t.counts_as == "held":
+            row.held_reason = t.reason
+            return t
+        row.state = t.state
+        row.held_reason = None
+        if t.increment_attempts:
+            row.attempts += 1
+        if t.state in (State.FAILED, State.DEAD_LETTER):
+            row.last_error = t.reason
+        elif t.state is State.CONFIRMED:
+            row.last_error = None
+        return t
+
+    def _release(self, row: OutboxRow) -> bool:
+        """HELD -> QUEUED, only when the environment may now send. Never touches `attempts`."""
+        if row.state is State.HELD and self.mode.may_send:
+            row.state = State.QUEUED
+            row.held_reason = None
+            return True
+        return False
+
+    @staticmethod
+    def _fail(row: OutboxRow, error: str) -> None:
         if not error:
             raise ValueError("a failure must carry its error; a swallowed error is a false green")
         row.state = State.FAILED
         row.attempts += 1
         row.last_error = error
-        return self.store.upsert(row)
+
+
+class Outbox(_OutboxCore):
+    """For a SYNCHRONOUS store. Refuses an asynchronous one (R1)."""
+
+    def enqueue(self, *, topic: str, source_key: str, payload: dict[str, Any]) -> OutboxRow:
+        """Queue an outbound document — or HOLD it, if this environment may not send.
+
+        Re-enqueuing the same (topic, source_key) returns the EXISTING row rather than creating a
+        second one. A retry after a timeout therefore cannot produce two documents at the far side,
+        which is the failure D3 exists to prevent.
+        """
+        self._require_key(source_key)
+        existing = self.store.get(topic, source_key)
+        _refuse_awaitable(existing, "get")
+        if existing is not None:
+            return existing
+        saved = self.store.upsert(self._new_row(topic, source_key, payload))
+        _refuse_awaitable(saved, "upsert")
+        return saved
+
+    def settle(self, row: OutboxRow, result: dict[str, Any]) -> OutboxRow:
+        """Apply the outcome of one drain attempt (`{"ok":..}`, `{"held":..}`, or an error)."""
+        self._apply(row, result)
+        saved = self.store.upsert(row)
+        _refuse_awaitable(saved, "upsert")
+        return saved
+
+    def release_held(self, row: OutboxRow) -> OutboxRow:
+        """Re-queue a HELD row once the gate is open. A no-op while the gate is shut."""
+        if self._release(row):
+            saved = self.store.upsert(row)
+            _refuse_awaitable(saved, "upsert")
+            return saved
+        return row
+
+    def mark_confirmed(self, row: OutboxRow, detail: Optional[dict] = None) -> OutboxRow:
+        row.state = State.CONFIRMED
+        row.detail.update(detail or {})
+        saved = self.store.upsert(row)
+        _refuse_awaitable(saved, "upsert")
+        return saved
+
+    def mark_failed(self, row: OutboxRow, error: str) -> OutboxRow:
+        """A failure is RECORDED, never swallowed (D7). `error` is required."""
+        self._fail(row, error)
+        saved = self.store.upsert(row)
+        _refuse_awaitable(saved, "upsert")
+        return saved
+
+
+class AsyncOutbox(_OutboxCore):
+    """For an ASYNCHRONOUS store: same rules, every store call awaited."""
+
+    async def enqueue(self, *, topic: str, source_key: str,
+                      payload: dict[str, Any]) -> OutboxRow:
+        self._require_key(source_key)
+        existing = await self.store.get(topic, source_key)
+        if existing is not None:
+            return existing
+        return await self.store.upsert(self._new_row(topic, source_key, payload))
+
+    async def settle(self, row: OutboxRow, result: dict[str, Any]) -> OutboxRow:
+        self._apply(row, result)
+        return await self.store.upsert(row)
+
+    async def release_held(self, row: OutboxRow) -> OutboxRow:
+        if self._release(row):
+            return await self.store.upsert(row)
+        return row
+
+    async def mark_confirmed(self, row: OutboxRow, detail: Optional[dict] = None) -> OutboxRow:
+        row.state = State.CONFIRMED
+        row.detail.update(detail or {})
+        return await self.store.upsert(row)
+
+    async def mark_failed(self, row: OutboxRow, error: str) -> OutboxRow:
+        self._fail(row, error)
+        return await self.store.upsert(row)

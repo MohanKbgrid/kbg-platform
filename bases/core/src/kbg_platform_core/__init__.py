@@ -7,7 +7,8 @@ doctrines hard to violate by accident. Everything else is yours to build against
 """
 from .authority import BLOCK_KINDS, NO_RULE, Authority, Decision, PermissionDenied
 from .idem import capture_id, is_client_minted
-from .outbox import Mode, Outbox, OutboxRow, OutboxStore, State
+from .outbox import (AsyncOutbox, AsyncOutboxStore, Mode, Outbox, OutboxRow, OutboxStore,
+                     RetryPolicy, State, Transition, decide)
 from .result import Gap, GapError, Outcome, Resolved, all_resolved, gaps
 from .versioned import VersionedRecord, VersionedStore, VersionedWriter, WriteResult
 
@@ -15,7 +16,8 @@ __version__ = "0.1.0"
 __all__ = [
     "Authority", "Decision", "PermissionDenied", "BLOCK_KINDS", "NO_RULE",
     "Gap", "GapError", "Outcome", "Resolved", "all_resolved", "gaps",
-    "Mode", "Outbox", "OutboxRow", "OutboxStore", "State",
+    "Mode", "Outbox", "AsyncOutbox", "OutboxRow", "OutboxStore", "AsyncOutboxStore", "State",
+    "RetryPolicy", "Transition", "decide",
     "VersionedRecord", "VersionedStore", "VersionedWriter", "WriteResult",
     "capture_id", "is_client_minted",
 ]
