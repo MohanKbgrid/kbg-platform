@@ -22,3 +22,33 @@ export {
 
 export { SyncIndicator, deriveSyncState } from './SyncIndicator.js';
 export type { SyncState, SyncIndicatorProps } from './SyncIndicator.js';
+
+export {
+  DENIAL_KINDS, DENIAL_COPY, DEFAULT_DENIAL_KIND, isDenialKind, assertReason, plainDenyReason,
+} from './access/denial.js';
+export type { DenialKind, DenialCopy, AccessDecision } from './access/denial.js';
+export { AccessControl, PermissionGate } from './access/AccessControl.js';
+export type { AccessControlProps, PermissionGateProps } from './access/AccessControl.js';
+
+export { StatusChip, toneFor, DEFAULT_TONES } from './StatusChip.js';
+export type { StatusChipProps, ChipTone } from './StatusChip.js';
+
+export { DataTable, pickColumns, cellValue } from './table/DataTable.js';
+export type {
+  Column, DataTableProps, Density, EmptyCopy, ActiveFilter,
+} from './table/DataTable.js';
+export { ServerDataTable, pageRange } from './table/ServerDataTable.js';
+export type { ServerColumn, ServerDataTableProps, TableError } from './table/ServerDataTable.js';
+
+export { WorkQueue, defaultFormatDue } from './queue/WorkQueue.js';
+export type { WorkItem, WorkQueueProps } from './queue/WorkQueue.js';
+export { AuditLog, defaultFormatAt } from './queue/AuditLog.js';
+export type { AuditRow, AuditGroup, AuditLogProps } from './queue/AuditLog.js';
+
+export { ErrorBoundary, makeReference } from './ErrorBoundary.js';
+export type { CapturedError, ErrorBoundaryProps } from './ErrorBoundary.js';
+export { useDraftPersist, readDraft, writeDraft, removeDraft } from './useDraftPersist.js';
+export type { DraftStorage } from './useDraftPersist.js';
+
+export { AppShell, groupNav } from './shell/AppShell.js';
+export type { AppShellProps, NavEntry, NavLinkProps } from './shell/AppShell.js';
