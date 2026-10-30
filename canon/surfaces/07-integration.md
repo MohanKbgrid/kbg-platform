@@ -48,6 +48,35 @@ each of them impossible rather than unlikely:
 12. **The gate is provable three independent ways**: the config says held, the outbox rows say held,
     and no outbound call is recorded. Assert all three; any one alone can be wrong.
 
+## Beyond the minimum: the multi-consumer relay
+
+The outbox above is the **minimum**: one dispatcher, one far side, six states (queued, in-flight,
+confirmed, held, failed, dead-letter). `bases/core/outbox.py` is that minimum. Some products must
+fan one event out to several consumers, each at its own pace and with its own failures. That needs
+four things the minimum does not have, and a product that adds them should add *these*, not invent
+its own:
+
+1. **Six outcomes, not two.** A delivery attempt ends in exactly one of: `APPLIED`, `ALREADY_APPLIED`
+   (the far side had it: success, not an error), `RETRY`, `REFUSED_PERMANENT` (stop now, dead-letter),
+   `TRANSPORT_ERROR` and `INFRA_HOLD` (our side is not allowed or able to send: wait, do not blame the
+   delivery). The mapping to attempts is part of the contract: `RETRY` and `TRANSPORT_ERROR` count
+   against the maximum; `APPLIED` and `ALREADY_APPLIED` finish; `REFUSED_PERMANENT` fails at once;
+   **`INFRA_HOLD` is never counted.**
+2. **Per-consumer delivery state.** One delivery row per (event, consumer), with its own state
+   (pending, in-flight, done, failed, abandoned), attempts and next-attempt time. One slow consumer
+   must not hold up or mark failed another consumer's copy of the same event.
+3. **Leases with a fence.** A worker claims a delivery for a bounded time. The result is accepted only
+   if the claim is still the live one: a counter that rises on **every** claim (not the attempt
+   number, which a release leaves unchanged) is the fence, so a stale worker that reuses a worker id
+   cannot overwrite a newer result. A lost claim counts as an attempt only if the call had started.
+4. **Ordering.** A delivery is claimable only when no earlier event of the same aggregate has an
+   unfinished delivery for that consumer. Without it, a late "cancelled" can overtake an early
+   "created".
+
+Dead letters follow the same discipline as the minimum, with one addition: **a committed money, stock
+or approval fact can be replayed but never discarded**, and the list of committed types is
+insert-only for every role. An empty list fails closed: nothing is then discardable.
+
 ## Schema shape
 
 ```
@@ -101,6 +130,16 @@ and a **retraction path**: a mapping the job no longer stands behind is closed o
    fired sat beside such a comment in this programme.
 7. **Failures are loud.** Force a far-side error; assert a non-zero result and a recorded failure —
    never a swallowed response.
+8. **The first enqueue of a new (topic, source_key) produces exactly one row.** Enqueue once into an
+   empty outbox; assert exactly one row exists, not zero and not two. Enqueue the same key again;
+   assert the same row, still one. This catches a calling-convention bug that every other gate misses:
+   a synchronous caller meeting an asynchronous store sees an un-awaited lookup, which is always
+   truthy, so the "row already exists" branch runs on the very first enqueue and nothing is written.
+   The outbox looks healthy, the retry gate (4) has nothing to retry, and only a count of rows shows it.
+9. **A held row consumes no attempt.** With mode ≠ production, run the dispatcher repeatedly; assert
+   every row stays held with `attempts = 0` and can still be re-driven. Flip the mode; assert the same
+   rows send, and that `attempts` counts only real calls. (For a relay, the same rule is the
+   `INFRA_HOLD` outcome: it stays pending and is never counted.)
 
 ## Divergence register
 
@@ -108,3 +147,4 @@ and a **retraction path**: a mapping the job no longer stands behind is closed o
 |---|---|---|
 | _Conforms._ The environment gate is proven three independent ways; unmapped codes refuse and name the gap; mappings are versioned with provenance and a retraction path; the outbox is idempotent on a source key; the state machine is the canon base, vendored. 83/83. | | |
 | The dispatcher's state machine is **vendored from `bases/core`**, not re-derived — and the base learned the held-does-not-consume-an-attempt rule *from this project*. | | |
+| **Three outbox designs exist in the programme, deliberately not merged into a fourth.** (1) `bases/core/outbox.py`: the minimum, one consumer, outbound. (2) A multi-consumer **relay**: per-consumer deliveries, six outcomes, leases with a fence, per-aggregate ordering (section above). (3) An **inbound hub** for a retail estate: a message envelope with an idempotency table keyed on tenant, source system and change id; statuses accepted / processed / rejected / dead / quarantined; a dead-letter queue (open, replaying, replayed, discarded) where a discard needs a recorded approval and a committed-fact type can never be discarded. | They solve different problems: one outbound consumer; fan-out with ordering; inbound receipt with controls. Each was built under real pressure before the canon said what the shared part is. | Three vocabularies for "stuck": held / INFRA_HOLD / quarantined, and failed / dead_letter / DEAD. A reader must know which design they are in. This spec fixes the shared rules (gates 4, 8, 9, the environment gate, the committed-fact rule); it does not claim the three share code. Do not write a fourth. |
