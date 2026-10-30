@@ -19,7 +19,8 @@ jobs:
       - name: tool tests
         run: python -m pytest -q tests
       - name: bases/core tests
-        run: python bases/core/test_core.py
+        working-directory: bases/core
+        run: python test_core.py
       - name: bases/core installs and imports from the installed copy
         run: python bases/core/verify_consumable.py
       - name: conformance kit self-test
