@@ -1,0 +1,100 @@
+# One customer site: PostgreSQL 16 (+pgvector), Sentinel API, workers, nightly backups, Prometheus, Grafana.
+#   cp .env.example .env   # fill in
+#   docker compose up -d --build
+# Everything here is open source and runs on any Linux server or cloud VM. Data stays in the db volume.
+name: sentinel
+
+x-sentinel: &sentinel
+  image: kbg-sentinel:0.11
+  build: {context: ../.., dockerfile: deploy/Dockerfile}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    SENTINEL_PG: postgresql://sentinel:${POSTGRES_PASSWORD}@db:5432/sentinel
+  volumes:
+    - ${OVERLAY_DIR:?set OVERLAY_DIR in .env}:/overlay:ro
+    - ./config:/config:ro
+  depends_on:
+    db: {condition: service_healthy}
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: sentinel
+    volumes:
+      - db:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # not published to the host; only the containers reach it
+
+  api:
+    <<: *sentinel
+    command: ["serve", "--host", "0.0.0.0", "--port", "8080", "--tokens", "/config/tokens.yaml", "--async"]
+    ports: ["${API_PORT:-8080}:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *sentinel
+    command: ["worker", "--threads", "${WORKER_THREADS:-4}", "--metrics-port", "9101"]
+    healthcheck:                          # a worker that gives up on the database exits and is restarted
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9101/healthz', timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+    depends_on:
+      db: {condition: service_healthy}
+      api: {condition: service_healthy}     # the API migrates the schema first
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+
+  maintenance:                           # nightly backup (verified, the newest BACKUP_KEEP kept) and retention
+    <<: *sentinel
+    command: ["maintain", "--backup-dir", "/backups", "--keep", "${BACKUP_KEEP:-14}", "--at", "${BACKUP_AT:-02:30}",
+              "--retention-days", "${RETENTION_DAYS:-365}"]
+    volumes:
+      - ${OVERLAY_DIR:?set OVERLAY_DIR in .env}:/overlay:ro
+      - ./config:/config:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db: {condition: service_healthy}
+      api: {condition: service_healthy}
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    ports: ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"]
+
+  grafana:
+    image: grafana/grafana-oss:11.3.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana:/var/lib/grafana
+    ports: ["${GRAFANA_PORT:-3000}:3000"]
+    depends_on: [prometheus]
+
+volumes:
+  db:
+  prometheus:
+  grafana:

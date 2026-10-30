@@ -1,0 +1,60 @@
+# Connector template: Amazon Selling Partner API, India marketplace (A21TJRUUN4KGV, EU endpoint). Check against the account.
+name: amazon-sp
+title: Amazon (Selling Partner API)
+description: >
+  Polls unshipped self-fulfilled (MFN) orders into order.unfulfilled, with hours since purchase and to the
+  latest ship date; lookups read an order and its items; the action sets a listing's available quantity.
+  Restricted data (buyer name and address) is never requested. Easy Ship and FBA orders are Amazon's to ship.
+settings:
+  SENTINEL_SECRET_AMAZON_CLIENT_ID: LWA client id of the SP-API app (Seller Central > Develop apps)
+  SENTINEL_SECRET_AMAZON_CLIENT_SECRET: LWA client secret
+  SENTINEL_SECRET_AMAZON_REFRESH_TOKEN: the refresh token from authorising the app for this seller
+  SENTINEL_SECRET_AMAZON_SELLER_ID: the merchant (seller) id, for listing updates
+events: [order.unfulfilled]
+fingerprints:
+  - {event_type: order.unfulfilled, fields: {channel: channel, location: location, stock: stock_status, order: order_id},
+     buckets: {age: {field: hours_since_paid, edges: [24, 48], labels: ["<24h", "24-48h", ">48h"]}}, group_by: [order]}
+connectors:
+  auth:
+    amazon:
+      url: https://api.amazon.com/auth/o2/token
+      form: true
+      body: {grant_type: refresh_token, refresh_token: "{{env.SENTINEL_SECRET_AMAZON_REFRESH_TOKEN}}",
+             client_id: "{{env.SENTINEL_SECRET_AMAZON_CLIENT_ID}}", client_secret: "{{env.SENTINEL_SECRET_AMAZON_CLIENT_SECRET}}"}
+      token: body.access_token
+      ttl_from: body.expires_in
+  sources:
+    amazon_unshipped:
+      kind: poll
+      every_s: 900
+      description: Unshipped Amazon (MFN) orders
+      url: "https://sellingpartnerapi-eu.amazon.com/orders/v0/orders?MarketplaceIds=A21TJRUUN4KGV&OrderStatuses=Unshipped,PartiallyShipped&FulfillmentChannels=MFN&LastUpdatedAfter={{cursor}}"
+      headers: {x-amz-access-token: "{{auth.amazon}}"}
+      items: body.payload.Orders
+      cursor: {field: item.LastUpdateDate, initial: "2026-01-01T00:00:00Z"}
+      emit:
+        - type: order.unfulfilled
+          key: "amazon:{{item.AmazonOrderId}}:{{item.PurchaseDate|days_since|int}}"
+          payload: {order_id: "{{item.AmazonOrderId}}", channel: amazon, location: "{{item.DefaultShipFromLocationAddress.Name|default:WH_CHN}}",
+                    stock_status: unknown, hours_since_paid: "{{item.PurchaseDate|hours_since|round:1}}",
+                    latest_ship_date: "{{item.LatestShipDate}}", is_prime: "{{item.IsPrime}}", system: amazon}
+  lookups:
+    amazon.order_items:
+      description: The items, SKUs and quantities of an Amazon order
+      params: {order_id: str}
+      request: {method: GET, url: "https://sellingpartnerapi-eu.amazon.com/orders/v0/orders/{{params.order_id}}/orderItems",
+                headers: {x-amz-access-token: "{{auth.amazon}}"}}
+      result: body.payload.OrderItems
+  actions:
+    amazon.set_quantity:
+      description: Set a self-fulfilled listing's available quantity
+      params: {sku: str, quantity: int, "product_type?": str}
+      request:
+        method: PATCH
+        url: "https://sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/{{env.SENTINEL_SECRET_AMAZON_SELLER_ID}}/{{params.sku}}?marketplaceIds=A21TJRUUN4KGV"
+        headers: {x-amz-access-token: "{{auth.amazon}}"}
+        body: {productType: "{{params.product_type|default:PRODUCT}}",
+               patches: [{op: replace, path: /attributes/fulfillment_availability,
+                          value: [{fulfillment_channel_code: DEFAULT, quantity: "{{params.quantity}}"}]}]}
+      ok_when: {body.status: ACCEPTED}
+      idempotency_header: null

@@ -1,0 +1,338 @@
+# Template: retail and D2C fulfilment (from the Acme Home exemplar)
+name: retail-fulfilment
+title: Retail and D2C fulfilment
+description: Orders stuck past SLA, channel sync failures, stock drift between WMS and channels, payments without
+  orders, warehouse or store outages. Fits Shopify / marketplace / store fulfilment (the Acme Home exemplar).
+registry:
+  roles:
+    fulfilment_exec: Order Fulfilment Executive - owns order exceptions day to day (exemplar role)
+    fulfilment_lead: Fulfilment Lead - escalation point for fulfilment exceptions
+    inventory_controller: Inventory Controller - owns stock accuracy across channels and locations
+    finance_ops: Finance Ops - owns payment and refund exceptions
+    supervisor: Operations Supervisor - triages anything the registry does not recognise
+    ops_head: Operations Head - top of the operations tree
+  fingerprints:
+  - event_type: order.unfulfilled
+    fields:
+      channel: channel
+      location: location
+      stock: stock_status
+      order: order_id
+    buckets:
+      age:
+        field: hours_since_paid
+        edges:
+        - 24
+        - 48
+        labels:
+        - <24h
+        - 24-48h
+        - '>48h'
+    group_by:
+    - order
+  - event_type: channel.sync_failed
+    fields:
+      channel: channel
+      operation: operation
+      error: error_code
+      order: order_id
+    group_by:
+    - channel
+    - operation
+    - order
+  - event_type: inventory.mismatch
+    fields:
+      location: location
+      sku: sku
+      channel: channel
+    buckets:
+      delta:
+        field: abs_delta
+        edges:
+        - 3
+        labels:
+        - small
+        - large
+    group_by:
+    - channel
+    - location
+    - sku
+  - event_type: payment.orphaned
+    fields:
+      gateway: gateway
+      payment: payment_id
+    group_by:
+    - payment
+  - event_type: location.outage
+    fields:
+      location: location
+      kind: kind
+    group_by:
+    - location
+  patterns:
+  - id: order_stuck_in_stock
+    description: Paid order not dispatched past SLA although stock is available at the assigned location.
+    event_types:
+    - order.unfulfilled
+    match:
+      stock: in_stock
+      age:
+      - 24-48h
+      - '>48h'
+    route: auto
+    playbook:
+    - action: expedite_pick
+      params:
+        order_id: '{{payload.order_id}}'
+        location: '{{payload.location}}'
+    allowed_actions:
+    - expedite_pick
+    - reallocate_order
+    - notify_customer_delay
+    disposition_codes:
+    - expedited
+    - reallocated
+    - customer_informed
+    - no_action
+    - false_positive
+    playbook_disposition: expedited
+    owner_role: fulfilment_exec
+    escalation_role: fulfilment_lead
+    sla_minutes: 120
+    severity: medium
+    inhibited_by:
+    - location_down
+    inhibit_on:
+    - location
+  - id: order_stuck_no_stock
+    description: Paid order not dispatched past SLA and the assigned location has no stock for one or more lines.
+    event_types:
+    - order.unfulfilled
+    match:
+      stock:
+      - out_of_stock
+      - partial
+      age:
+      - 24-48h
+      - '>48h'
+    route: hitl
+    max_route: llm
+    allowed_actions:
+    - reallocate_order
+    - notify_customer_delay
+    - cancel_order
+    disposition_codes:
+    - reallocated
+    - customer_informed
+    - cancelled
+    - no_action
+    - false_positive
+    owner_role: fulfilment_exec
+    escalation_role: fulfilment_lead
+    sla_minutes: 120
+    severity: high
+    llm_min_confidence: 0.85
+    inhibited_by:
+    - location_down
+    inhibit_on:
+    - location
+    outcome_check:
+      verifier: order_fulfillable
+      after_minutes: 60
+    llm_instructions: 'Check stock for every SKU at the other locations with check_stock_all_locations before deciding.
+      Prefer reallocate_order to a location that has full stock. If no location can fulfil, propose notify_customer_delay
+      with an honest new date; propose cancel_order only for Ajio orders past 72 hours (marketplace penalty) or
+      when the customer asked to cancel. Never promise a date you cannot support.
+
+      '
+  - id: channel_sync_failed
+    description: Order status (dispatch / cancel / return) failed to sync to the sales channel.
+    event_types:
+    - channel.sync_failed
+    match:
+      error:
+      - TIMEOUT
+      - RATE_LIMITED
+      - HTTP_5XX
+    route: auto
+    playbook:
+    - action: retry_channel_sync
+      params:
+        channel: '{{payload.channel}}'
+        order_id: '{{payload.order_id}}'
+        operation: '{{payload.operation}}'
+    allowed_actions:
+    - retry_channel_sync
+    disposition_codes:
+    - resynced
+    - no_action
+    - false_positive
+    playbook_disposition: resynced
+    owner_role: fulfilment_exec
+    sla_minutes: 60
+    severity: medium
+    group_window_minutes: 30
+    outcome_check:
+      verifier: sync_landed
+      after_minutes: 15
+  - id: channel_sync_rejected
+    description: The channel rejected the status update (validation / state error). Needs a person to look.
+    event_types:
+    - channel.sync_failed
+    match:
+      error: '*'
+    route: hitl
+    allowed_actions:
+    - retry_channel_sync
+    - notify_customer_delay
+    disposition_codes:
+    - resynced
+    - fixed_in_channel
+    - no_action
+    - false_positive
+    owner_role: fulfilment_exec
+    escalation_role: fulfilment_lead
+    sla_minutes: 120
+    severity: medium
+  - id: payment_orphaned
+    description: Payment captured at the gateway but no order exists in Shopify.
+    event_types:
+    - payment.orphaned
+    route: hitl
+    max_route: hitl
+    allowed_actions:
+    - create_order_from_payment
+    - refund_payment
+    disposition_codes:
+    - order_created
+    - refunded
+    - duplicate_payment
+    - no_action
+    owner_role: finance_ops
+    escalation_role: fulfilment_lead
+    sla_minutes: 60
+    severity: high
+  - id: stock_drift_small
+    description: Channel stock differs slightly from warehouse count; push the warehouse figure to the channel.
+    event_types:
+    - inventory.mismatch
+    match:
+      delta: small
+    route: llm
+    model_task: triage
+    playbook:
+    - action: push_stock_to_channel
+      params:
+        channel: '{{payload.channel}}'
+        sku: '{{payload.sku}}'
+        location: '{{payload.location}}'
+    allowed_actions:
+    - push_stock_to_channel
+    disposition_codes:
+    - stock_corrected
+    - no_action
+    - false_positive
+    playbook_disposition: stock_corrected
+    owner_role: inventory_controller
+    sla_minutes: 240
+    severity: low
+    outcome_check:
+      verifier: channel_stock_matches
+      after_minutes: 30
+  - id: stock_drift_large
+    description: Large gap between channel and warehouse stock - possible shrinkage or a receiving error.
+    event_types:
+    - inventory.mismatch
+    match:
+      delta: large
+    route: hitl
+    max_route: hitl
+    allowed_actions:
+    - push_stock_to_channel
+    - request_cycle_count
+    disposition_codes:
+    - stock_corrected
+    - cycle_count_raised
+    - no_action
+    - false_positive
+    owner_role: inventory_controller
+    escalation_role: fulfilment_lead
+    sla_minutes: 240
+    severity: high
+  - id: location_down
+    description: A fulfilment location cannot pick/dispatch (WMS outage, store closure). Suppresses order-level
+      noise.
+    event_types:
+    - location.outage
+    route: hitl
+    max_route: hitl
+    allowed_actions:
+    - notify_customer_delay
+    disposition_codes:
+    - restored
+    - rerouted
+    - no_action
+    owner_role: fulfilment_lead
+    sla_minutes: 30
+    severity: critical
+people:
+  roles:
+    ops_head:
+      name: Operations Head
+    fulfilment_lead:
+      name: Fulfilment Lead
+      parent: ops_head
+    fulfilment_exec:
+      name: Order Fulfilment Executive
+      parent: fulfilment_lead
+    inventory_controller:
+      name: Inventory Controller
+      parent: ops_head
+    finance_ops:
+      name: Finance Ops
+      parent: ops_head
+    supervisor:
+      name: Operations Supervisor
+      parent: ops_head
+  people:
+  - id: admin
+    name: 'Replace me: the operations head'
+    edges: []
+  assignments:
+  - person_id: admin
+    role_id: ops_head
+  authority:
+  - role_id: fulfilment_exec
+    action: expedite_pick
+  - role_id: fulfilment_exec
+    action: reallocate_order
+  - role_id: fulfilment_exec
+    action: notify_customer_delay
+  - role_id: fulfilment_exec
+    action: retry_channel_sync
+  - role_id: fulfilment_exec
+    action: cancel_order
+    level: propose
+  - role_id: fulfilment_lead
+    action: cancel_order
+  - role_id: fulfilment_lead
+    action: __kill_switch__
+  - role_id: inventory_controller
+    action: push_stock_to_channel
+  - role_id: inventory_controller
+    action: request_cycle_count
+  - role_id: finance_ops
+    action: create_order_from_payment
+  - role_id: finance_ops
+    action: refund_payment
+    max_amount: 10000
+  - role_id: ops_head
+    action: refund_payment
+  - role_id: ops_head
+    action: __promote__
+  - role_id: ops_head
+    action: __set_route__
+  - role_id: ops_head
+    action: __reverse__
+  - role_id: ops_head
+    action: __configure__

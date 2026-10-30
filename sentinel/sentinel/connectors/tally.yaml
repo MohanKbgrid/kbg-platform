@@ -1,0 +1,159 @@
+# Connector template: TallyPrime / Tally.ERP 9 over its XML HTTP interface (F1 > Settings > Connectivity:
+# "TallyPrime acts as Server", port 9000). Tally answers on the local network only: run the Sentinel worker
+# (or a gateway) on the same network, and allow the address in SENTINEL_EGRESS_ALLOW.
+name: tally
+title: TallyPrime (XML over HTTP)
+description: >
+  Reads today's Day Book into voucher events (to catch vouchers that were never posted elsewhere, or posted
+  late); lookups read a party's outstanding bills, a ledger's balance, the vouchers of a period with their
+  bank allocations, and the bank ledgers' balances. Its datasets give the standard finance columns
+  (bank_lines, cash_position, invoices). Writes to Tally are left to people.
+settings:
+  SENTINEL_SECRET_TALLY_URL: e.g. http://192.168.1.20:9000
+  SENTINEL_SECRET_TALLY_COMPANY: the company name exactly as Tally shows it
+events: [tally.voucher]
+fingerprints:
+  - {event_type: tally.voucher, fields: {voucher: guid}}
+connectors:
+  sources:
+    tally_daybook:
+      kind: poll
+      every_s: 900
+      description: Vouchers entered in Tally today (Day Book)
+      method: POST
+      format: xml
+      url: "{{env.SENTINEL_SECRET_TALLY_URL}}"
+      body: >-
+        <ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Data</TYPE><ID>Day Book</ID></HEADER>
+        <BODY><DESC><STATICVARIABLES><SVCURRENTCOMPANY>{{env.SENTINEL_SECRET_TALLY_COMPANY|xml}}</SVCURRENTCOMPANY>
+        <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES></DESC></BODY></ENVELOPE>
+      headers: {Content-Type: "text/xml; charset=utf-8"}
+      items: body.ENVELOPE.BODY.DATA.TALLYMESSAGE
+      emit:
+        - type: tally.voucher
+          when: {item.VOUCHER: {exists: true}}
+          key: "tally:{{item.VOUCHER.GUID}}:{{item.VOUCHER.ALTERID}}"
+          payload: {guid: "{{item.VOUCHER.GUID}}", voucher_type: "{{item.VOUCHER._VCHTYPE}}",
+                    number: "{{item.VOUCHER.VOUCHERNUMBER}}", date: "{{item.VOUCHER.DATE}}",
+                    party: "{{item.VOUCHER.PARTYLEDGERNAME}}", narration: "{{item.VOUCHER.NARRATION}}",
+                    system: tally}
+  lookups:
+    tally.bills_outstanding:
+      description: A party's outstanding bills (bill, date, amount, due) from Tally
+      params: {party: str}
+      reads_only: true                    # Tally's export is a POST that changes nothing
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_TALLY_URL}}"
+        headers: {Content-Type: "text/xml; charset=utf-8"}
+        body: >-
+          <ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Data</TYPE><ID>Ledger Outstandings</ID></HEADER>
+          <BODY><DESC><STATICVARIABLES><LEDGERNAME>{{params.party|xml}}</LEDGERNAME>
+          <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES></DESC></BODY></ENVELOPE>
+      result: body.ENVELOPE
+    tally.ledger_balance:
+      description: A ledger's opening and closing balance from Tally
+      params: {ledger: str}
+      reads_only: true
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_TALLY_URL}}"
+        headers: {Content-Type: "text/xml; charset=utf-8"}
+        body: >-
+          <ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Object</TYPE><SUBTYPE>Ledger</SUBTYPE>
+          <ID TYPE="Name">{{params.ledger|xml}}</ID></HEADER><BODY><DESC><STATICVARIABLES>
+          <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES><FETCHLIST><FETCH>OpeningBalance</FETCH>
+          <FETCH>ClosingBalance</FETCH><FETCH>Parent</FETCH></FETCHLIST></DESC></BODY></ENVELOPE>
+      result: body.ENVELOPE
+    tally.vouchers:
+      description: Every voucher of a period with its ledger entries and bank allocations (bank date, instrument)
+      params: {company: str, from: str, to: str}
+      reads_only: true
+      max_chars: 50000
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_TALLY_URL}}"
+        headers: {Content-Type: "text/xml; charset=utf-8"}
+        body: >-
+          <ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE><ID>SentinelVouchers</ID></HEADER>
+          <BODY><DESC><STATICVARIABLES><SVCURRENTCOMPANY>{{params.company|xml}}</SVCURRENTCOMPANY>
+          <SVFROMDATE>{{params.from|xml}}</SVFROMDATE><SVTODATE>{{params.to|xml}}</SVTODATE>
+          <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES>
+          <TDL><TDLMESSAGE><COLLECTION NAME="SentinelVouchers" ISMODIFY="No"><TYPE>Voucher</TYPE>
+          <FETCH>Date, VoucherNumber, VoucherTypeName, GUID, PartyLedgerName, AllLedgerEntries.LedgerName,
+          AllLedgerEntries.Amount, AllLedgerEntries.BankAllocations.BankersDate,
+          AllLedgerEntries.BankAllocations.InstrumentNumber</FETCH></COLLECTION></TDLMESSAGE></TDL>
+          </DESC></BODY></ENVELOPE>
+      result: body.ENVELOPE.BODY.DATA.COLLECTION.VOUCHER
+    tally.bank_ledgers:
+      description: The ledgers under Bank Accounts with their closing balances
+      params: {company: str}
+      reads_only: true
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_TALLY_URL}}"
+        headers: {Content-Type: "text/xml; charset=utf-8"}
+        body: >-
+          <ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE><ID>SentinelBanks</ID></HEADER>
+          <BODY><DESC><STATICVARIABLES><SVCURRENTCOMPANY>{{params.company|xml}}</SVCURRENTCOMPANY>
+          <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES>
+          <TDL><TDLMESSAGE><COLLECTION NAME="SentinelBanks" ISMODIFY="No"><TYPE>Ledger</TYPE>
+          <CHILDOF>$$GroupBank</CHILDOF><BELONGSTO>Yes</BELONGSTO><FETCH>Name, Parent, ClosingBalance</FETCH>
+          </COLLECTION></TDLMESSAGE></TDL></DESC></BODY></ENVELOPE>
+      result: body.ENVELOPE.BODY.DATA.COLLECTION.LEDGER
+
+# Standard finance datasets (kind: lookup) for metrics. Tally's books side: a bank entry is "matched" once its
+# bank date is set (bank reconciliation done in Tally). Negative amounts are debits in Tally's XML.
+datasets:
+  bank_lines:
+    kind: lookup
+    lookup: tally.vouchers
+    description: Bank entries in Tally and whether each is reconciled (bank date set)
+    refresh_minutes: 60
+    args: {company: "{{env.SENTINEL_SECRET_TALLY_COMPANY}}", from: "{{now|days_before:60|strftime:%Y%m%d}}",
+           to: "{{now|strftime:%Y%m%d}}"}
+    each: item.ALLLEDGERENTRIES.LIST
+    where: {item.BANKALLOCATIONS.LIST: {exists: true}}
+    columns:
+      line_id: "{{parent.GUID}}:{{item.LEDGERNAME}}"
+      account: "{{item.LEDGERNAME}}"
+      booked_at: "{{parent.DATE|date:%Y%m%d}}"
+      direction: "{{item.AMOUNT|float|lt:0|pick:credit,debit}}"
+      amount: "{{item.AMOUNT|float|abs}}"
+      utr: "{{item.BANKALLOCATIONS.LIST|get:INSTRUMENTNUMBER}}"
+      matched: "{{item.BANKALLOCATIONS.LIST|get:BANKERSDATE|present}}"
+      voucher: "{{parent.VOUCHERNUMBER}}"
+      age_hours: "{{parent.DATE|date:%Y%m%d|hours_since}}"
+    checks: {fresh: booked_at, max_age_hours: 96, unique: [line_id], not_null: [account, amount]}
+  cash_position:
+    kind: lookup
+    lookup: tally.bank_ledgers
+    description: Bank ledger closing balances in Tally, and the monthly burn (vars.monthly_burn) as its own row
+    refresh_minutes: 360
+    args: {company: "{{env.SENTINEL_SECRET_TALLY_COMPANY}}"}
+    columns:
+      as_of: "{{now}}"
+      account: "{{item._NAME}}"
+      balance: "{{item.CLOSINGBALANCE|float|neg}}"
+      burn_share: 0
+    vars: {monthly_burn: 0}
+    append: [{as_of: "{{now}}", account: monthly_burn, balance: 0, burn_share: "{{vars.monthly_burn|float}}"}]
+    checks: {min_rows: 2, unique: [as_of, account], not_null: [balance]}
+  invoices:
+    kind: lookup
+    lookup: tally.vouchers
+    description: Sales vouchers in Tally (invoice numbers issued twice)
+    refresh_minutes: 60
+    args: {company: "{{env.SENTINEL_SECRET_TALLY_COMPANY}}", from: "{{now|days_before:45|strftime:%Y%m%d}}",
+           to: "{{now|strftime:%Y%m%d}}"}
+    where: {item.VOUCHERTYPENAME: {in: [Sales, Tax Invoice, GST Sales]}}
+    columns:
+      order_id: "{{item.GUID}}"
+      channel: tally
+      location: main
+      vertical: all
+      dispatched_at: "{{item.DATE|date:%Y%m%d}}"
+      invoice_no: "{{item.VOUCHERNUMBER}}"
+      amount: "{{item.ALLLEDGERENTRIES.LIST|one|get:AMOUNT|float|abs}}"
+      hours_since_dispatch: "{{item.DATE|date:%Y%m%d|hours_since}}"
+    checks: {unique: [order_id], not_null: [invoice_no]}

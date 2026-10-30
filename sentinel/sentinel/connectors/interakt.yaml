@@ -1,0 +1,18 @@
+# Connector template: WhatsApp review cards through Interakt (approved templates). Check against your account.
+name: interakt
+title: WhatsApp via Interakt
+description: >
+  Review cards as an approved Interakt template (body: title, reason; quick-reply buttons whose payload
+  Sentinel fills). Point Interakt's webhook at https://<server>/v1/wa/wa_interakt. Give people a
+  contact.whatsapp number and wa_interakt in their edges.
+settings:
+  SENTINEL_SECRET_INTERAKT_KEY: the Interakt API key (Settings > Developer Setting), as Interakt shows it
+  SENTINEL_SECRET_INTERAKT_WEBHOOK: the webhook secret from Interakt, used to check that replies are genuine
+events: []
+connectors:
+  edges:
+    wa_interakt:
+      kind: interakt
+      api_key_env: SENTINEL_SECRET_INTERAKT_KEY
+      signing_secret_env: SENTINEL_SECRET_INTERAKT_WEBHOOK
+      template: {name: sentinel_review, language: en, languages: [en]}

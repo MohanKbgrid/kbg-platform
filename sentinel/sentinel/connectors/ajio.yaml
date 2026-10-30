@@ -1,0 +1,48 @@
+# Connector template: Ajio. Ajio has no public seller API; integrated sellers reach it through a partner API or an
+# aggregator (Unicommerce, EasyEcom, Vinculum and the like). This template expects a partner endpoint that
+# lists open orders and takes stock updates; confirm paths and field names against the integration spec.
+name: ajio
+title: Ajio (partner API or aggregator)
+description: >
+  Polls Ajio orders not yet dispatched (from the partner API or the aggregator that carries Ajio) into
+  order.unfulfilled, and pushes stock for a SKU. Field names follow a common shape: map them to the actual
+  integration spec when it arrives (only the base URL and token are secrets).
+settings:
+  SENTINEL_SECRET_AJIO_URL: the partner or aggregator API base URL for Ajio
+  SENTINEL_SECRET_AJIO_TOKEN: the API token for that endpoint
+events: [order.unfulfilled]
+fingerprints:
+  - {event_type: order.unfulfilled, fields: {channel: channel, location: location, stock: stock_status, order: order_id},
+     buckets: {age: {field: hours_since_paid, edges: [24, 48], labels: ["<24h", "24-48h", ">48h"]}}, group_by: [order]}
+connectors:
+  sources:
+    ajio_open_orders:
+      kind: poll
+      every_s: 900
+      description: Ajio orders not yet dispatched
+      url: "{{env.SENTINEL_SECRET_AJIO_URL}}/orders?channel=ajio&status=open&updated_since={{cursor}}"
+      headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_AJIO_TOKEN}}"}
+      items: body.orders
+      cursor: {field: item.updated_at, initial: "2026-01-01T00:00:00Z"}
+      emit:
+        - type: order.unfulfilled
+          when: {item.status: {in: [created, confirmed, packed, ready_to_ship]}}
+          key: "ajio:{{item.order_id}}:{{item.created_at|days_since|int}}"
+          payload: {order_id: "{{item.order_id}}", channel: ajio, location: "{{item.location|default:WH_CHN}}",
+                    stock_status: unknown, hours_since_paid: "{{item.created_at|hours_since|round:1}}",
+                    dispatch_by: "{{item.dispatch_by|default:}}", system: ajio}
+  lookups:
+    ajio.order:
+      description: A Ajio order with its lines and status
+      params: {order_id: str}
+      request: {method: GET, url: "{{env.SENTINEL_SECRET_AJIO_URL}}/orders/{{params.order_id}}?channel=ajio",
+                headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_AJIO_TOKEN}}"}}
+  actions:
+    ajio.set_stock:
+      description: Set the stock Ajio shows for a SKU
+      params: {sku: str, quantity: int, "location?": str}
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_AJIO_URL}}/inventory?channel=ajio"
+        headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_AJIO_TOKEN}}"}
+        body: {sku: "{{params.sku}}", quantity: "{{params.quantity}}", location: "{{params.location|default:WH_CHN}}"}
