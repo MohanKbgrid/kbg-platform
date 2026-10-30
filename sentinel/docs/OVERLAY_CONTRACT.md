@@ -1,6 +1,6 @@
 # The overlay contract
 
-An overlay is the project's own package (`acme-sentinel` is the reference). The framework calls into it
+An overlay is the project's own package (`examples/quickstart.py` is the smallest reference and `python -m sentinel.demo` a fuller one). The framework calls into it
 only through the `Overlay` object returned by its `build_overlay()`; everything else is configuration.
 This page is the full list of what an overlay provides and the exact shape of each piece. If code and
 this page disagree, the code is right and this page is a bug.

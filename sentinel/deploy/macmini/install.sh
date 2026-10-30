@@ -6,7 +6,7 @@
 set -euo pipefail
 GW="$HOME/sentinel-gateway"
 MODELS="${MODELS:-qwen2.5:7b-instruct nomic-embed-text}"
-REPO="${SENTINEL_REPO:-git+https://github.com/MohanKbgrid/kbg-sentinel.git}"
+REPO="${SENTINEL_REPO:-git+https://github.com/MohanKbgrid/kbg-platform.git#subdirectory=sentinel}"
 
 command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
 brew list ollama >/dev/null 2>&1 || brew install ollama

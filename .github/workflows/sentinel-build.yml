@@ -1,0 +1,66 @@
+name: sentinel-build
+# Everything a Sentinel release does EXCEPT publish or sign: build the distribution, build the image, smoke-test it,
+# write the SBOM. Needs read access only, so CI runs it on every change to the release files, and the tag-triggered
+# release calls it first. A broken release is found in a pull request, not on the day a tag is pushed.
+on:
+  workflow_call:
+    inputs:
+      version: { type: string, required: true }
+    outputs:
+      name: { description: lower-case image name, value: "${{ jobs.image.outputs.name }}" }
+permissions: { contents: read }
+jobs:
+  dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install build twine
+      - name: build the sdist and wheel
+        run: python -m build sentinel --outdir dist
+      - run: python -m twine check dist/*
+      - name: no licence or billing code in the distribution
+        run: |
+          if unzip -l dist/*.whl | grep -Ei "sentinel/(licence|billing)\.py"; then exit 1; fi
+      - name: the wheel installs and the CLI runs
+        run: |
+          python -m venv /tmp/v && /tmp/v/bin/pip install -q dist/*.whl
+          /tmp/v/bin/sentinel --help >/dev/null
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist/ }
+
+  image:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: name
+        # Docker refuses any upper-case letter in an image name, and a GitHub owner name may have them.
+        # This was the cause of every failed release of the private line (invalid tag ... must be lowercase).
+        name: lower-case image name
+        run: |
+          image=$(echo "ghcr.io/${{ github.repository_owner }}/kbg-sentinel" | tr '[:upper:]' '[:lower:]')
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: sentinel
+          file: sentinel/deploy/Dockerfile
+          load: true
+          push: false
+          tags: "${{ steps.name.outputs.image }}:${{ inputs.version }}"
+      - name: image smoke test
+        run: |
+          img="${{ steps.name.outputs.image }}:${{ inputs.version }}"
+          docker run --rm --network none "$img" new-token
+          docker run --rm --network none --entrypoint python "$img" -c 'import sentinel; print(sentinel.__version__)'
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: SBOM (CycloneDX) of the runtime dependencies
+        run: |
+          pip install -q "./sentinel[postgres,api,analytics,anthropic]" packaging
+          python sentinel/scripts/sbom.py --out sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.cdx.json }

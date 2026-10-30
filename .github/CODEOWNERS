@@ -1,0 +1,11 @@
+# One reviewer per layer. Add maintainers as they are invited (see GOVERNANCE.md).
+*                    @MohanKbgrid
+/canon/              @MohanKbgrid
+/gates/              @MohanKbgrid
+/bases/core/         @MohanKbgrid
+/bases/ui-kit/       @MohanKbgrid
+/sentinel/           @MohanKbgrid
+/docs/               @MohanKbgrid
+/tools/              @MohanKbgrid
+/.github/            @MohanKbgrid
+/LICENSE /LICENSE-docs /NOTICE /GOVERNANCE.md @MohanKbgrid

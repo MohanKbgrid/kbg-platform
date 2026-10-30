@@ -79,7 +79,7 @@ def test_bundle_round_trip_and_version(keys):
     snap = load_policy(token, keys["public"], core="pos", clock=lambda: NOW)
     assert snap.site == "r06" and len(snap.version) == 16 and not snap.stale()
     assert snap.expires_at - snap.issued_at == timedelta(hours=12)
-    assert snap.directory.roles_of("meena", {"store": "TVM01"}) == {"store_manager"}
+    assert snap.directory.roles_of("meena", {"store": "TVM01"}, at=NOW) == {"store_manager"}   # at the frozen date, not today
     issued = eng.store.get_source_state("policy_bundles")["issued"]
     assert issued[-1]["version"] == snap.version
     assert eng.export_policy() and len(eng.store.get_source_state("policy_bundles")["issued"]) == 1   # same content

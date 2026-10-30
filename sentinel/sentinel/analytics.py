@@ -274,7 +274,8 @@ class Analytics:
             CAST(json_extract(data, '$.overall.exact') AS DOUBLE) AS exact,
             CAST(json_extract(data, '$.overall.agrees_with_primary') AS DOUBLE) AS agrees_with_primary,
             CAST(json_extract(data, '$.overall.error_rate') AS DOUBLE) AS error_rate,
-            array_to_string(CAST(json_extract(data, '$.overall.ready_patterns') AS VARCHAR[]), ', ') AS ready_for
+            coalesce(array_to_string(CAST(json_extract(data, '$.overall.ready_patterns') AS VARCHAR[]), ', '),
+                     '') AS ready_for
             FROM audit WHERE kind = 'model_evaluation' ORDER BY seq DESC""")
 
     def all(self, days: int | None = None, facts: list[str] | None = None) -> dict[str, list[dict[str, Any]]]:

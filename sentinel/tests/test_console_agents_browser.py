@@ -149,7 +149,9 @@ def test_reviews_rank_by_money_and_bulk(served, browser, width):
     pg.wait_for_selector(".review")
     pg.select_option("select[aria-label=Order]", "money")
     pg.wait_for_function("location.hash.includes('order=money')")
-    pg.wait_for_selector(".review")
+    # The cards of the previous order are still on the page when the URL changes; wait for the re-sorted list to be
+    # drawn (its first card is the biggest stake) before reading it, or the test races the re-render.
+    sync_api.expect(pg.locator(".review .badge.b-warn").first).to_contain_text("9,000")   # polls; no eval (the CSP forbids it)
     stakes = pg.locator(".review .badge.b-warn").all_inner_texts()
     assert stakes[:3] == ["9,000 at stake", "450 at stake", "120 at stake"], stakes
     assert pg.locator("text=on digest").count() == 2                 # the first case was a card
