@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """D3 — idempotency by SOURCE id, not by server id.
 
 The client (a device, an external system) mints the id and it BECOMES the primary key. A re-sent

@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Domain-free primitives enforcing the KBG Platform Surfaces canon's doctrines"
 requires-python = ">=3.10"
 dependencies = []          # deliberately none: drops into any stack, any ORM, any framework
-authors = [{ name = "KBG" }]
+authors = [{ name = "KB Grid" }]
+license = { text = "Apache-2.0" }
+classifiers = ["License :: OSI Approved :: Apache Software License"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

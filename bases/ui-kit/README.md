@@ -100,3 +100,8 @@ exiting 0** — a false green. Use the `typecheck` script, which resolves the re
 
 `0.x` while its first consumers shake it out. Breaking changes go in the consuming project's
 divergence register, not behind a compatibility shim.
+
+## Licence
+
+Apache-2.0 (see `LICENSE` at the repository root). Keep the `NOTICE` file when you copy this into a product.
+Copied files keep their SPDX header.

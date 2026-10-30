@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """kbg-platform-core — the domain-free primitives that enforce the KBG Platform Surfaces canon.
 
 Read `docs/canon/README.md` first. This package does not replace the specs; it makes six of their

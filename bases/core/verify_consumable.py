@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """The gate that matters for a LIBRARY: build the wheel, install it into a clean target, and
 import it with `src/` NOT on the path.
 

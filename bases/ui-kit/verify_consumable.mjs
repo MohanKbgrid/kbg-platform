@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /**
  * The gate that matters for a LIBRARY: pack the tarball npm would publish, install THAT into a
  * throwaway project, and import it by name.

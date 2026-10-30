@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """Integration §10 — the environment gate, and D3 idempotency by source key.
 
 ⛔ THE FAILURE THIS PREVENTS: a development or UAT environment writing to the client's production

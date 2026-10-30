@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /**
  * The eight states most software forgets — Experience surface, canon §06.
  *

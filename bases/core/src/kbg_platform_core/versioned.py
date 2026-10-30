@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """D2 — append-only. A value changes by SUPERSEDING, never by updating in place.
 
 Applies to anything financial or evidentiary: a mapping, a price, a threshold that decides a
