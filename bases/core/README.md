@@ -13,9 +13,11 @@ where re-implementing it *differently* is the actual bug:
 | Module | Doctrine it makes hard to violate |
 |---|---|
 | `result` | **D4** — missing data is a finding. A caller cannot read a value without handling its absence. |
-| `authority` | **D1** deny-by-default, and *one* function drives both the disabled button and the 403. |
+| `authority` | **D1** deny-by-default, and *one* function drives both the disabled button and the 403. A denial carries a **kind** (one of seven, default `AUTHORITY`) and a code; wraps an injected `authorise(actor, action, obj)`. |
+| `rbac_shadow` | **D1, retrofit** — shadow evaluation that never denies; records `allow` / `would_deny` / `unmapped` / `error` and says per route group when it is safe to enforce (`coverage_report()`). Reference code for [`retrofit.md`](../../canon/adoption/retrofit.md). |
 | `versioned` | **D2** — append-only. Changing a value supersedes; it never updates in place. |
-| `outbox` | **D1 + Integration §10** — the environment gate. Non-production **holds**, it does not pretend. |
+| `outbox` | **D1 + Integration §10** — the environment gate. Non-production **holds**, it does not pretend. `Outbox` (sync store) and `AsyncOutbox` (async store) share one `decide()`; a held row consumes no attempt; a sync `Outbox` refuses an async store instead of losing the first enqueue (gate 8). |
+| `job_run` | **Integration gates 6 and 7** — one helper records a run on success *and* failure and re-raises; a broken recorder is loud but never kills the job. Injected store. |
 | `idem` | **D3** — idempotency by client-minted source id. |
 | `testkit` | **D5 + D7** — prove the control controls; refuse to run against a non-fixture database. |
 
@@ -30,7 +32,10 @@ regardless of ORM, web framework, or database driver. Adapters are *callables yo
 ## How to use this: **VENDOR it, do not depend on it**
 
 Copy `src/kbg_platform_core/` into your project — e.g. `app/vendor/kbg_platform_core/` — and
-**own it from there.** Record the commit you copied from in a `_VENDOR.md` beside it.
+**own it from there.** Record the commit you copied from in a `_VENDOR.md` beside it (start from
+[`templates/_VENDOR.md`](../../templates/_VENDOR.md)), and gate it with
+`python tools/vendor_check.py <your vendor dir>`: it fails if a file you recorded as untouched has
+changed, or a file is unrecorded.
 
 ```bash
 git clone https://github.com/MohanKbgrid/kbg-platform.git /tmp/kbg
@@ -73,7 +78,7 @@ its gate** — then optionally send the code change back here for the next proje
 ## Verify before you depend on it
 
 ```bash
-python test_core.py            # 47 doctrine checks, every one a NEGATIVE case
+python test_core.py            # 163 doctrine checks, nearly all NEGATIVE cases
 python verify_consumable.py    # builds, installs, imports from the INSTALL not from ./src
 ```
 
