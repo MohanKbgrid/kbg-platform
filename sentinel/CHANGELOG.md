@@ -36,7 +36,7 @@ commit SHA. `tests/test_changelog.py` refuses an entry without both lines. Entri
 
 **Class:** Compatible (every part is additive and ships switched off or unused: a new endpoint, new files, an
 optional extra. No existing behaviour, contract or test changes).
-**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`; point your editor at `schemas/` (`docs/SCHEMAS.md`). (The version heading
+**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`; point your editor at `schemas/` (`docs/SCHEMAS.md`); read `docs/asyncapi.yaml`. (The version heading
 is assigned when this is released.)
 
 - **CloudEvents 1.0 receiver (`sentinel.cloudevents`, `POST /v1/cloudevents`).** Structured and binary HTTP modes
@@ -49,6 +49,10 @@ is assigned when this is released.)
   from the pydantic models the loaders use; the `$id` base is a marked placeholder set in one constant. A test
   validates every shipped template and example against them and refuses planted defects. New example
   `deploy/site/config/metrics.yaml.example`; `jsonschema` joins the `dev` extra.
+
+- **AsyncAPI 3.0 event contracts (`docs/asyncapi.yaml`, `scripts/gen_asyncapi.py`).** The canonical envelope, the
+  CloudEvents form and a message per event type the shipped templates and connectors use, generated from the code
+  and the shipped YAML; a test fails when the file drifts or a reference stops resolving.
 
 ## v0.24.0 (2026-10-20)
 

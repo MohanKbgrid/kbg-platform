@@ -431,6 +431,10 @@ and the same idempotency rule.
   other than `1.0`, a `time` that is not RFC 3339 with an offset, a malformed body (400); batch mode,
   other formats and other data types (415); oversize (413); no or a wrong token (401, 403).
 
+**Event contracts.** `docs/asyncapi.yaml` (AsyncAPI 3.0) describes the event envelope, the CloudEvents form and each
+event type the shipped templates and connectors use, with the payload fields the fingerprint rules read. It is
+generated (`python scripts/gen_asyncapi.py`, checked in tests) so it cannot drift from the code.
+
 ### "Did not happen by" exceptions (expect sources)
 
 Some exceptions are the absence of something: an indent not received by 05:30, a settlement not filed by
