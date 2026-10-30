@@ -7,7 +7,7 @@ v0.24.0 it differs as follows; older entries below describe the private line and
 
 - **Removed:** KBGrid's own invoicing and payment-link code, its CLI command (`sentinel invoice`), its webhook
   (`/v1/billing/...`) and its secret names. Usage metering and the signed usage export stay.
-- **Replaced:** the `nextgen` connector template is now the generic `postgres-outbox` template (the outbox
+- **Replaced:** a product-specific connector template is now the generic `postgres-outbox` template (the outbox
   reader only; the product-specific finance datasets are not published).
 - **Renamed:** customer names in examples, tests and docs are replaced by neutral demo names ("Acme Home").
 - **Not published:** internal working notes (`NEXT_SESSION`, `BUILDER_MISSES`, `PARADIGM_OVERHAUL`) and two
