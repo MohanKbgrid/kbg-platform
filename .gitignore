@@ -7,3 +7,5 @@ __pycache__/
 
 # agent working copies
 .claude/worktrees/
+.site-src/
+site/

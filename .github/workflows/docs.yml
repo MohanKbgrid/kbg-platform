@@ -1,0 +1,31 @@
+name: docs
+on:
+  push:
+    branches: [main]
+    paths: ["canon/**", "gates/**", "docs/**", "bases/**/README.md", "sentinel/docs/**", "sentinel/README.md", "sentinel/CHANGELOG.md", "*.md", "mkdocs.yml", "tools/build_docs.py"]
+  pull_request:
+    paths: ["canon/**", "gates/**", "docs/**", "bases/**/README.md", "sentinel/docs/**", "sentinel/README.md", "sentinel/CHANGELOG.md", "*.md", "mkdocs.yml", "tools/build_docs.py"]
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install mkdocs-material
+      - run: python tools/build_docs.py --build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+
+  # Publishing needs GitHub Pages switched on by the owner (Settings, Pages, Source: GitHub Actions) and the repository
+  # variable PAGES_ENABLED=true. Until then the site is only built and checked.
+  deploy:
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' && vars.PAGES_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
