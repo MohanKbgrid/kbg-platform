@@ -196,6 +196,115 @@ def a2ui_messages(card: ReviewCard) -> list[dict[str, Any]]:
             {"beginRendering": {"surfaceId": sid, "root": "root", "catalogId": A2UI_CATALOG}}]
 
 
+# A2UI v0.9 / v0.9.1 (specification/v0_9_1 of the A2UI project, "closed", the current production release):
+# flat components with a "component" type name, createSurface / updateComponents envelopes carrying
+# "version", the basic catalogue, and a client action {name, surfaceId, sourceComponentId, timestamp, context}.
+A2UI_V08 = "v0.8"
+A2UI_VERSIONS = ("v0.8", "v0.9", "v0.9.1")
+A2UI_DEFAULT_VERSION = A2UI_V08            # nothing changes for existing chat surfaces until they opt in
+A2UI_CATALOG_V09 = "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"
+_A2UI_V09 = ("v0.9", "v0.9.1")
+
+
+def check_a2ui_version(version: Any) -> str:
+    """The version if Sentinel speaks it; otherwise a clear ValueError (never a silent fallback)."""
+    if version not in A2UI_VERSIONS:
+        raise ValueError(f"unsupported A2UI version {version!r}; this edge speaks {', '.join(A2UI_VERSIONS)}")
+    return version
+
+
+def _v9_btn(cid: str, label: str, context: dict[str, str]) -> list[dict[str, Any]]:
+    return [{"id": f"{cid}_t", "component": "Text", "text": label},
+            {"id": cid, "component": "Button", "child": f"{cid}_t",
+             "variant": "primary" if cid == "approve" else "default",
+             "action": {"event": {"name": "sentinel.answer", "context": dict(context)}}}]
+
+
+def a2ui_messages_v09(card: ReviewCard, version: str = "v0.9.1") -> list[dict[str, Any]]:
+    """The review card as A2UI v0.9/v0.9.1 messages (createSurface, then updateComponents). The same card,
+    the same ``sentinel.answer`` action and context as v0.8; only the wire format differs."""
+    if version not in _A2UI_V09:
+        raise ValueError(f"not an A2UI v0.9 version: {version!r}")
+    sid = f"review-{card.review_id}"
+    facts = ", ".join(f"{k}: {v}" for k, v in card.facts.items() if k not in ("event_type", "source"))
+    comps: list[dict[str, Any]] = [{"id": "title", "component": "Text", "text": card.title, "variant": "h3"},
+                                   {"id": "reason", "component": "Text", "text": card.reason}]
+    body = ["title", "reason"]
+    if facts:
+        comps.append({"id": "facts", "component": "Text", "text": facts, "variant": "caption"})
+        body.append("facts")
+    if card.proposal_steps:
+        prop = "; ".join(f"{s.action}({', '.join(f'{k}={v}' for k, v in s.params.items())})"
+                         for s in card.proposal_steps)
+        conf = f" - {round(card.proposal_confidence * 100)}% sure" if card.proposal_confidence is not None else ""
+        comps.append({"id": "proposal", "component": "Text",
+                      "text": f"Proposed: {prop}{conf}. {card.proposal_rationale}".strip()})
+        body.append("proposal")
+    tok = {"answer_token": card.answer_token} if card.answer_token else {}
+    buttons = []
+    if "approve" in card.answer_options and card.proposal_steps:
+        comps += _v9_btn("approve", "Approve", {"review_id": card.review_id, "decision": "approve", **tok})
+        buttons.append("approve")
+    for i, code in enumerate(_close_codes(card)):
+        comps += _v9_btn(f"close{i}", f"Close: {code.replace('_', ' ')}",
+                         {"review_id": card.review_id, "decision": "reject", "disposition_code": code, **tok})
+        buttons.append(f"close{i}")
+    if card.link:
+        comps.append({"id": "link", "component": "Text", "text": f"Open in the console: {card.link}",
+                      "variant": "caption"})
+        body.append("link")
+    comps.append({"id": "buttons", "component": "Row", "children": buttons})
+    comps.append({"id": "col", "component": "Column", "children": [*body, "buttons"]})
+    comps.append({"id": "root", "component": "Card", "child": "col"})
+    return [{"version": version, "createSurface": {"surfaceId": sid, "catalogId": A2UI_CATALOG_V09}},
+            {"version": version, "updateComponents": {"surfaceId": sid, "components": comps}}]
+
+
+def render_a2ui(card: ReviewCard, version: str = A2UI_DEFAULT_VERSION) -> list[dict[str, Any]]:
+    """The card in the negotiated A2UI version."""
+    check_a2ui_version(version)
+    return a2ui_messages(card) if version == A2UI_V08 else a2ui_messages_v09(card, version)
+
+
+def user_action_from_message(msg: dict[str, Any]) -> dict[str, Any]:
+    """The action inside an inbound A2UI client message, from either wire format, as ``{name, context, ...}``.
+
+    * v0.8 / legacy: ``{"userAction": {name, context, surfaceId, ...}}``
+    * v0.9 / v0.9.1: ``{"version": "v0.9.1", "action": {name, surfaceId, sourceComponentId, timestamp, context}}``
+
+    Both versions are accepted whatever the edge renders. A declared ``version`` Sentinel does not speak is
+    refused; a v0.9 answer whose surface is not the review it names is refused (it came from another card)."""
+    if not isinstance(msg, dict):
+        raise ValueError("an A2UI message is a JSON object")
+    ver = msg.get("version")
+    if ver is not None:
+        check_a2ui_version(ver)
+    if "action" in msg:
+        if ver not in _A2UI_V09:
+            raise ValueError("an A2UI 'action' message must declare version v0.9 or v0.9.1")
+        act = msg["action"]
+        if not isinstance(act, dict):
+            raise ValueError("A2UI action must be an object")
+        for k in ("name", "surfaceId", "sourceComponentId", "timestamp", "context"):
+            if k not in act:
+                raise ValueError(f"A2UI {ver} action is missing {k!r}")
+    elif "userAction" in msg:
+        if ver in _A2UI_V09:
+            raise ValueError(f"A2UI {ver} sends 'action', not 'userAction'")
+        act = msg["userAction"]
+        if not isinstance(act, dict):
+            raise ValueError("A2UI userAction must be an object")
+    else:
+        raise ValueError("no A2UI action in the message")
+    ctx = act.get("context") or {}
+    if not isinstance(ctx, dict):
+        raise ValueError("A2UI action context must be an object")
+    sid, rid = act.get("surfaceId"), ctx.get("review_id")
+    if "action" in msg and act.get("name") == "sentinel.answer" and sid != f"review-{rid}":
+        raise ValueError("the action's surface is not the review it names")
+    return act
+
+
 def answer_from_user_action(action: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """An A2UI userAction from a review card -> (review_id, decision). The card's answer token, when the
     button carried one, is in ``decision["answer_token"]``."""
@@ -216,11 +325,23 @@ def answer_from_user_action(action: dict[str, Any]) -> tuple[str, dict[str, Any]
 
 class A2UIEdge(WebhookEdge):
     """A signed webhook whose body carries the card and its A2UI rendering:
-    ``{"card": {...}, "a2ui": [surfaceUpdate, beginRendering]}``."""
+    ``{"card": {...}, "a2ui": [messages...]}``. ``a2ui_version`` (``v0.8`` default, ``v0.9``, ``v0.9.1``) is the
+    version this chat surface renders; answers in either version are always accepted."""
+
+    def __init__(self, name: str, url: str, secret: str, timeout_s: float = 10.0,
+                 headers: dict[str, str] | None = None, answer_secret: str | None = None,
+                 a2ui_version: str = A2UI_DEFAULT_VERSION) -> None:
+        super().__init__(name, url, secret, timeout_s, headers, answer_secret)
+        try:
+            self.a2ui_version = check_a2ui_version(a2ui_version)
+        except ValueError as e:
+            raise ValueError(f"edge {name}: {e}") from None
 
     def deliver(self, card: ReviewCard) -> str:
-        body = json.dumps({"card": card.model_dump(mode="json"), "a2ui": a2ui_messages(card)}).encode()
-        return self._post(card, body)
+        out: dict[str, Any] = {"card": card.model_dump(mode="json"), "a2ui": render_a2ui(card, self.a2ui_version)}
+        if self.a2ui_version != A2UI_DEFAULT_VERSION:
+            out["a2ui_version"] = self.a2ui_version        # the default body is unchanged
+        return self._post(card, json.dumps(out).encode())
 
 
 def _post_signed(edge: WebhookEdge, card: ReviewCard, body: bytes) -> str:
@@ -399,7 +520,11 @@ def _builtin_kinds() -> None:
                                         answer_secret=secret("answer_secret_env") if c.get("answer_secret_env")
                                         else None)
     register_edge_kind("webhook", {"url", "secret_env", "answer_secret_env"}, hook(WebhookEdge))
-    register_edge_kind("a2ui", {"url", "secret_env", "answer_secret_env"}, hook(A2UIEdge))
+    register_edge_kind("a2ui", {"url", "secret_env", "answer_secret_env", "a2ui_version"},
+                       lambda n, c, secret: A2UIEdge(
+                           n, c.get("url", ""), secret("secret_env"), timeout_s=float(c.get("timeout_s", 10)),
+                           answer_secret=secret("answer_secret_env") if c.get("answer_secret_env") else None,
+                           a2ui_version=str(c.get("a2ui_version", A2UI_DEFAULT_VERSION))))
     register_edge_kind("whatsapp", {"phone_number_id", "access_token_env", "app_secret_env", "verify_token_env",
                                     "base_url", "template"},
                        lambda n, c, secret: WhatsAppEdge(

@@ -258,7 +258,7 @@ incident still awaiting a human once a time window elapsed.
   HttpOnly cookie (any replica can finish a sign-in); the ID token is taken from the token endpoint over TLS
   (OIDC Core 3.1.3.7) and its issuer, audience, expiry and nonce are checked; the person is matched on email or
   id and must be active. A sign-in issues a short-lived stored token.
-- **Edges from configuration**: `A2UIEdge` (signed webhook carrying the card and its A2UI v0.8 rendering;
+- **Edges from configuration**: `A2UIEdge` (signed webhook carrying the card and its A2UI v0.8 rendering, or v0.9/v0.9.1 with `a2ui_version`;
   button presses return as `userAction`s), `WhatsAppEdge` (Cloud API interactive buttons or templates; replies
   verified with the app secret and matched to people by number). Configured edges are merged with the
   overlay's own.
