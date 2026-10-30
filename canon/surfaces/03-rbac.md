@@ -21,6 +21,23 @@ first, fudge the second, and never ask the third.
    not exist and generates support load; showing it disabled with "requires Plant Manager approval"
    teaches them how the organisation works. The same authority function drives both the button
    state and the API's 403, so **a disabled button and a rejection can never disagree**.
+
+   **A denial carries its KIND as well as its reason.** "Not allowed" covers seven different things,
+   and the person looking at a greyed-out button needs to know which, because each has a different
+   next step. The kind is a closed list, and `AUTHORITY` is the default:
+
+   | Kind | Meaning | What the person should be shown |
+   |---|---|---|
+   | `AUTHORITY` | Their role, scope or a segregation-of-duties rule does not allow it | Which position can, and how to ask |
+   | `STATE_GATE` | The object is in a state that does not allow it (already posted, cancelled, patient not admitted) | The state it is in; nothing to request |
+   | `CONFIG_GATE` | A setting or environment switch turns it off | Who can change the setting; that it is off by choice |
+   | `PRECONDITION` | Something required first is missing or fails a check (a document, a master value, a limit) | Exactly what is missing |
+   | `READINESS` | The system is not ready yet (data loading, a dependency down, a trust period not yet earned) | That it is temporary, and why |
+   | `APPROVAL_PENDING` | Waiting on a named approver | Who, since when; the request is already in their queue |
+   | `COMPLETED` | Already done | The result. This is not an error |
+
+   A kind outside this list is refused when the decision is built, and a denial with no reason is
+   refused too: a silently disabled control is the thing this rule exists to prevent.
 4. **Scope is data, not code.** A person's reach — which plants, routes, territories, companies —
    is rows, resolved at decision time. Widening someone's scope is an assignment change, never a
    deploy.
@@ -47,7 +64,7 @@ position_role         position_id · role_id
 scope_assignment      principal_id|position_id · dimension · value   ← plant / route / company
 sod_conflict          permission_a · permission_b · reason
 delegation            grantor · grantee · scope · valid_from · valid_to · reason
-decision_log          actor · action · object_ref · allowed · reason · acted_for · at
+decision_log          actor · action · object_ref · allowed · kind · reason · acted_for · at
 ```
 
 ## Doctrines that bind here
@@ -74,13 +91,16 @@ an unbuilt surface.
    assert their permissions, queue items, and approval authority all changed, and that nothing was
    edited but one assignment row.
 5. **The button and the API agree.** For a denied action, assert the availability API says
-   `enabled:false` *with a reason*, and that calling the endpoint anyway returns 403 with the
-   **same** reason. Both must come from one function.
+   `enabled:false` *with a reason and a kind*, and that calling the endpoint anyway returns 403 with
+   the **same** reason and the **same** kind. Both must come from one function.
 6. **SoD refuses at assignment.** Attempt to give one person both halves of a conflict pair; assert
    refusal naming the conflict — not a warning, and not a later report.
 7. **Delegation expires and is attributable.** Act under a delegation; assert the log records
    acted-for. Advance past the end date; assert the action is now denied.
 8. **The decision log records allows too.** Perform a permitted action; assert a log row exists.
+9. **A denial names its kind, and only a known one.** Produce one denial of each of the seven kinds;
+   assert each response carries that kind and a non-empty reason. Try to build a denial with an
+   unknown kind, and with no reason; assert both are refused.
 
 ## Divergence register
 
@@ -88,4 +108,5 @@ an unbuilt surface.
 |---|---|---|
 | ⛔ **The engine conforms but is NOT universally applied.** 13 of 30 routers reference the authority layer; the rest are gated only by `require_user` (authenticated, not authorised). | RBAC landed as step 02 of one slice; earlier routers were never retrofitted. | **Deny-by-default does not hold across the API.** An authenticated user reaching an ungated router is not permission-checked. This is the single largest divergence in this register. |
 | `principal_role` holds **0 rows** — no principal is bound to a role in this environment | Deliberate and evidence-based: role populations were seeded from real client data, but login binding waits on the client's role census. | The permission model is exercised by tests, not by real users. Correct for the build stage, but it means production behaviour is untested. |
+| **The vendorable base does not carry the denial kind yet.** `bases/core/authority.py` returns a reason and a `who_can`, but no `kind`; the seven kinds are specified here and implemented in one reference product. | The kind was learned after the base was cut. It is on the base's update list (W5, item H2), with a default of `AUTHORITY` so existing callers keep working. | Until then a product vendoring the base must add the kind itself, or its screens cannot tell a state gate from a missing permission. Gate 9 will fail on the base as it stands. |
 | _Conforms on_ — `can()` contract, scope-as-data, position-based roles, SoD conflicts, delegation with acted-for, decision logging (47/47). | | |
