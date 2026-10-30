@@ -80,7 +80,7 @@ def test_slack_and_teams_cards_and_a_slack_answer(eng, fake, backend):
     assert slack and slack[0][1]["Authorization"] == "Bearer xoxb-1" and slack[0][2]["channel"] == "U123"
     buttons = slack[0][2]["blocks"][-1]["elements"]
     assert buttons[0]["value"] == f"sentinel:{rid}:approve"
-    assert teams and teams[0][2]["attachments"][0]["content"]["actions"][0]["url"].startswith("https://ops.example")
+    assert teams and teams[0][2]["attachments"][0]["content"]["actions"][0]["url"].split("/")[2] == "ops.example"
     c = TestClient(create_app(eng, {}, config_sync_s=0))
     payload = {"type": "block_actions", "user": {"id": "U123"}, "actions": [{"value": f"sentinel:{rid}:approve"}]}
     body = urllib.parse.urlencode({"payload": json.dumps(payload)}).encode()

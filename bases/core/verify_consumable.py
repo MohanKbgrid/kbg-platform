@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory() as work:
     target = Path(work) / "site"
     r = subprocess.run([sys.executable, "-m", "pip", "install", ".", "--target", str(target),
                         "--quiet", "--no-deps", "--no-build-isolation"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, cwd=Path(__file__).resolve().parent)
     t("pip install of the package succeeds", r.returncode == 0, r.stderr.strip()[:70])
     t("the package directory is installed", (target / "kbg_platform_core").is_dir())
     dist = list(target.glob("kbg_platform_core-*.dist-info"))

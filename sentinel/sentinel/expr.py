@@ -29,7 +29,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-_TPL = re.compile(r"\{\{\s*([a-zA-Z_][\w.]*)((?:\s*\|\s*[a-z_]+(?::[^|}]*)?)*)\s*\}\}")
+_TPL = re.compile(r"\{\{\s*([a-zA-Z_][\w.]*)\s*((?:\|\s*[a-z_]+(?::[^|}]*)?)*)\s*\}\}")
 _MISSING = object()
 
 
