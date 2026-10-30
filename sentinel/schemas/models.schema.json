@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kbg-platform.example/schemas/models.schema.json",
+  "title": "Sentinel models (models, routes, fallback, escalation, embedder)",
+  "description": "models.yaml: which models answer which tasks. Whether a named model exists is checked by the loader.",
+  "type": "object",
+  "properties": {
+    "models": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/model"
+      }
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/modelRef"
+      }
+    },
+    "default": {
+      "$ref": "#/$defs/modelRef"
+    },
+    "escalate": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/modelRef"
+      }
+    },
+    "escalate_below": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "candidates": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/modelRef"
+      }
+    },
+    "embedder": {
+      "$ref": "#/$defs/modelRef"
+    },
+    "daily_budget": {
+      "type": "number",
+      "minimum": 0
+    },
+    "prices": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "description": "model -> [price per 1k input tokens, price per 1k output tokens]."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "models"
+  ],
+  "$defs": {
+    "model": {
+      "type": "object",
+      "required": [
+        "provider"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "provider": {
+          "enum": [
+            "anthropic",
+            "crew",
+            "hashing",
+            "ollama",
+            "openai_compatible"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "base_url": {
+          "type": "string"
+        },
+        "api_key_env": {
+          "type": "string"
+        },
+        "timeout_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "dim": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "llm": {
+          "type": "string"
+        }
+      }
+    },
+    "modelRef": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": [
+            "model"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "$ref": "#/$defs/modelRef"
+            },
+            "fallback": {
+              "$ref": "#/$defs/modelRef"
+            },
+            "cooldown_s": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    }
+  }
+}

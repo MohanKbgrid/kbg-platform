@@ -1,0 +1,598 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kbg-platform.example/schemas/people.schema.json",
+  "title": "Sentinel people (role tree, people, assignments, authority)",
+  "description": "people.yaml: who may do what, where. Cross-references between roles and people are checked by the loader.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    },
+    "roles": {
+      "description": "role id -> {name, parent, description} or a description string; or a list of roles.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RoleKeyed"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          }
+        }
+      ]
+    },
+    "people": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Person"
+      }
+    },
+    "assignments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Assignment"
+      }
+    },
+    "authority": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AuthorityRule"
+      }
+    },
+    "unattended": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/UnattendedRule"
+      }
+    },
+    "config_approval": {
+      "$ref": "#/$defs/ConfigApproval"
+    },
+    "value": {
+      "$ref": "#/$defs/ValueSettings"
+    },
+    "scim": {
+      "$ref": "#/$defs/ScimSettings"
+    },
+    "scopes": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ScopeDimension"
+      }
+    },
+    "stop_at": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "vacancy": {
+      "type": "string"
+    },
+    "sod": {
+      "description": "Segregation-of-duties pairs."
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AgentPolicy"
+      }
+    },
+    "oversight": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OversightRule"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AgentPolicy": {
+      "description": "How far an agent (a template run in a scope) may go (ADR-003 C1). Most specific row wins: a pattern id\nbeats its capability, which beats \"*\"; then the row with more scope keys.\n\n  OFF      the template takes no cases in that scope (events go to people as unmatched)\n  OBSERVE  shadow: it proposes, a person decides everything\n  PROPOSE  a person approves each proposal (never unattended)\n  ACT      acts on its own up to the route it has earned, inside the pattern's ceiling and the limits\n\n``grants`` name what it may touch unattended: VIEW or EDIT per action (or object). With grants set, an\nunattended step on an action without EDIT goes to a person. APPROVE is never grantable to an agent.",
+      "properties": {
+        "template": {
+          "default": "*",
+          "title": "Template",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "grants": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Grants",
+          "type": "object"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid From"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "AgentPolicy",
+      "type": "object"
+    },
+    "Assignment": {
+      "properties": {
+        "person_id": {
+          "title": "Person Id",
+          "type": "string"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid From"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "person_id",
+        "role_id"
+      ],
+      "title": "Assignment",
+      "type": "object"
+    },
+    "AuthorityRule": {
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "level": {
+          "default": "approve",
+          "title": "Level",
+          "type": "string"
+        },
+        "patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
+        "max_amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Amount"
+        },
+        "amount_param": {
+          "default": "amount",
+          "title": "Amount Param",
+          "type": "string"
+        },
+        "inherit": {
+          "default": true,
+          "title": "Inherit",
+          "type": "boolean"
+        },
+        "needs_proposal": {
+          "default": false,
+          "title": "Needs Proposal",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role_id",
+        "action"
+      ],
+      "title": "AuthorityRule",
+      "type": "object"
+    },
+    "ConfigApproval": {
+      "description": "Maker-checker for configuration: a version is published only after ``approvals`` people who hold\n__configure__, other than its author, have approved it.",
+      "properties": {
+        "approvals": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Approvals",
+          "type": "integer"
+        },
+        "kinds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kinds",
+          "type": "array"
+        }
+      },
+      "title": "ConfigApproval",
+      "type": "object"
+    },
+    "OversightRule": {
+      "description": "Who oversees which agents (Layer D). The role must own none of them: it is not a template's owner or\nescalation role, nor above one on the solid line (ADR-003 invariant 5).",
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "templates": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Templates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "OversightRule",
+      "type": "object"
+    },
+    "Person": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "contact": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Contact",
+          "type": "object"
+        },
+        "edges": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "active": {
+          "default": true,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "language": {
+          "default": "",
+          "title": "Language",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Person",
+      "type": "object"
+    },
+    "Role": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "dotted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dotted",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Role",
+      "type": "object"
+    },
+    "RoleKeyed": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "dotted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dotted",
+          "type": "array"
+        }
+      },
+      "title": "Role",
+      "type": "object"
+    },
+    "ScimGrant": {
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "ScimGrant",
+      "type": "object"
+    },
+    "ScimSettings": {
+      "description": "Provisioning from the company directory (Entra ID, Okta, Google): which roles each group gives.",
+      "properties": {
+        "group_roles": {
+          "additionalProperties": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ScimGrant"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "title": "Group Roles",
+          "type": "object"
+        },
+        "default_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Default Roles",
+          "type": "array"
+        }
+      },
+      "title": "ScimSettings",
+      "type": "object"
+    },
+    "ScopeDimension": {
+      "description": "A fact whose values roll up. ``parents`` maps a value to the value above it: in the same dimension\n(a category tree: rice -> staples -> grocery) or, with ``rolls_up_to``, in another dimension\n(store TVM01 -> region south). An assignment scoped to a value covers every value below it.",
+      "properties": {
+        "parents": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "object"
+        },
+        "rolls_up_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rolls Up To"
+        }
+      },
+      "title": "ScopeDimension",
+      "type": "object"
+    },
+    "UnattendedRule": {
+      "description": "How far an automatic playbook (`auto`) or the model (`llm`) may go on its own, per action.\n\n    unattended:\n      - {resolver: \"*\", action: post_salesman_shortage, max_amount: 2000}\n      - {resolver: llm, action: refund_payment, max_amount: 500, patterns: [refund_small]}\n\nWithout a rule for an action, the lowest amount limit any person has for it applies, so a playbook or\nthe model never does on its own more than the most junior approver could.",
+      "properties": {
+        "resolver": {
+          "default": "*",
+          "title": "Resolver",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
+        "max_amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Amount"
+        },
+        "amount_param": {
+          "default": "amount",
+          "title": "Amount Param",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "UnattendedRule",
+      "type": "object"
+    },
+    "ValueSettings": {
+      "description": "What an hour of people's time costs, for the value report (money saved by automatic resolutions).",
+      "properties": {
+        "currency": {
+          "default": "INR",
+          "title": "Currency",
+          "type": "string"
+        },
+        "hourly_cost": {
+          "default": 400.0,
+          "minimum": 0,
+          "title": "Hourly Cost",
+          "type": "number"
+        },
+        "default_minutes": {
+          "default": 8.0,
+          "exclusiveMinimum": 0,
+          "title": "Default Minutes",
+          "type": "number"
+        },
+        "model_cost_rate": {
+          "default": 84.0,
+          "exclusiveMinimum": 0,
+          "title": "Model Cost Rate",
+          "type": "number"
+        }
+      },
+      "title": "ValueSettings",
+      "type": "object"
+    }
+  }
+}

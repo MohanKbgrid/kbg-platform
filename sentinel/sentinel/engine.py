@@ -28,6 +28,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from collections.abc import Callable, Iterator
 
+from . import otel
 from .actions import ActionContext, ActionRegistry, ParamError, render
 from .edges import Delivery, ReviewCard
 from .fingerprint import Fingerprinter
@@ -1215,7 +1216,14 @@ class Engine:
         return out
 
     def _drive(self, inc: Incident, pattern: Pattern) -> None:
-        """Decide how to resolve a fresh (OPEN) incident and do it."""
+        """Decide how to resolve a fresh (OPEN) incident and do it (one trace span when OpenTelemetry is on)."""
+        with otel.span("sentinel.case.handle", {"sentinel.incident_id": inc.id, "sentinel.pattern_id": pattern.id,
+                                                "sentinel.tenant": inc.tenant, "sentinel.route": inc.route.value},
+                       ignore=(_LeaseLost,)) as sp:
+            self._drive_case(inc, pattern)
+            sp.set(**{"sentinel.state": inc.state.value})
+
+    def _drive_case(self, inc: Incident, pattern: Pattern) -> None:
         event = self.store.get_event(inc.event_ids[0])
         inc.event_ids = self.store.event_ids(inc.id) or inc.event_ids
         route = inc.route

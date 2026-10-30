@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 from collections.abc import Callable
 
+from . import otel
+
 DEFAULT_PII_KEYS = frozenset({
     "customer", "customer_name", "name", "first_name", "last_name", "full_name", "email", "phone", "mobile",
     "whatsapp", "address", "address1", "address2", "shipping_address", "billing_address", "pan", "aadhaar",
@@ -160,6 +162,8 @@ class MeteredClient:
         chars_in = len(system) + sum(len(m.get("content", "")) for m in messages)
         t0 = time.perf_counter()
         out, err = "", None
+        call = otel.model_call(self.model, otel.provider_of(self.inner), task=self.task, shadow=self.shadow,
+                               system=system, messages=messages)          # a no-op unless tracing is on
         try:
             out = self.inner.complete(system, messages)
             return out
@@ -187,6 +191,7 @@ class MeteredClient:
                            prompt_tokens=p_tok, completion_tokens=c_tok,
                            fallback_reason=getattr(self.inner, "last_fallback_reason", None),
                            escalated=self.escalated)
+            call.finish(answered_by=model, input_tokens=p_tok, output_tokens=c_tok, error=err, reply=out)
             self.runs.append(run)
             self.sink(run)
 

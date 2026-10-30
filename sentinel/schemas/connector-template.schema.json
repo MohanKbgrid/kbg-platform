@@ -1,0 +1,2118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kbg-platform.example/schemas/connector-template.schema.json",
+  "title": "Sentinel connector template",
+  "description": "A ready-made connector (sentinel/connectors/*.yaml): settings to fill in, events, fingerprint rules and the connectors configuration it adds.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Environment variable -> what to put in it."
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Event types the connector emits."
+    },
+    "fingerprints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FingerprintRule"
+      }
+    },
+    "connectors": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/MCPServer"
+          }
+        },
+        "edges": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "name -> edge settings (see docs/OPERATIONS.md, Edges)."
+        },
+        "actions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/HttpAction"
+          }
+        },
+        "lookups": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/HttpLookup"
+          }
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AuthSpec"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "datasets": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Dataset"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "connectors"
+  ],
+  "$defs": {
+    "AuthSpec": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "method": {
+          "default": "POST",
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "default": null,
+          "title": "Body"
+        },
+        "form": {
+          "default": false,
+          "title": "Form",
+          "type": "boolean"
+        },
+        "token": {
+          "default": "body.token",
+          "title": "Token",
+          "type": "string"
+        },
+        "token_regex": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token Regex"
+        },
+        "ttl_s": {
+          "default": 3000,
+          "minimum": 60,
+          "title": "Ttl S",
+          "type": "integer"
+        },
+        "ttl_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ttl From"
+        },
+        "timeout_s": {
+          "default": 20.0,
+          "exclusiveMinimum": 0,
+          "maximum": 60,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "AuthSpec",
+      "type": "object"
+    },
+    "Bucket": {
+      "description": "Turn a number into a label, e.g. age_hours -> '>24h'.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "edges": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "edges",
+        "labels"
+      ],
+      "title": "Bucket",
+      "type": "object"
+    },
+    "Capability": {
+      "additionalProperties": false,
+      "description": "A business capability (Inventory & Replenishment, Finance & MIS): what the business does, who is\naccountable, what it must never do, and how its results are measured. Exceptions belong to one; the\ncapability caps how far they may be automated and can be switched to observe only (instrumented and\nmeasured, nothing acted on without a person) while the business decides whether to deploy it.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "intent": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Intent",
+          "type": "array"
+        },
+        "outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Outcomes",
+          "type": "array"
+        },
+        "max_route": {
+          "$ref": "#/$defs/Route",
+          "default": "auto"
+        },
+        "mode": {
+          "default": "act",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "Capability",
+      "type": "object"
+    },
+    "CaseDefaults": {
+      "additionalProperties": false,
+      "description": "The registry's ``defaults:`` - for every exception that does not set its own.",
+      "properties": {
+        "escalation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EscalationRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expires_after_hours": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires After Hours"
+        },
+        "pause_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pause On",
+          "type": "array"
+        },
+        "digest_hour": {
+          "default": 9,
+          "maximum": 23,
+          "minimum": 0,
+          "title": "Digest Hour",
+          "type": "integer"
+        },
+        "timezone": {
+          "default": "UTC",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "data_trust": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataTrust"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CaseDefaults",
+      "type": "object"
+    },
+    "ClearEvent": {
+      "additionalProperties": false,
+      "description": "An event that says the problem is gone (an order fulfilled, a location back up).",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "same": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Same",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "same"
+      ],
+      "title": "ClearEvent",
+      "type": "object"
+    },
+    "ClearLookup": {
+      "additionalProperties": false,
+      "description": "A read-only lookup asked on a schedule while the case is open; the case closes when it holds.",
+      "properties": {
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "condition": {
+          "additionalProperties": true,
+          "title": "Condition",
+          "type": "object"
+        },
+        "every_minutes": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Every Minutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tool",
+        "condition"
+      ],
+      "title": "ClearLookup",
+      "type": "object"
+    },
+    "ClearWhen": {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/ClearEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClearLookup"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ClearWhen",
+      "type": "object"
+    },
+    "Cursor": {
+      "description": "Where reading resumes. With only `field`, use \">=\" in the query (rows that share the last value are\nread again and recognised as duplicates by their keys). With `tie` (a unique field such as the row id)\nthe position is (field, tie): query ``WHERE (updated_at, id) > (%(cursor)s, %(cursor_tie)s)`` and no row\nsharing a timestamp across a page boundary is skipped.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "initial": {
+          "default": null,
+          "title": "Initial"
+        },
+        "tie": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tie"
+        },
+        "tie_initial": {
+          "default": null,
+          "title": "Tie Initial"
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "title": "Cursor",
+      "type": "object"
+    },
+    "DataChecks": {
+      "additionalProperties": false,
+      "description": "What must hold before anyone acts on a dataset: the facts are reproducible and reconciled without AI.\nWhile a check fails the dataset is *not trusted*: its monitors raise no breach and close no case, its\nmetrics say so wherever they are shown, outcome checks on it give no verdict, and a ``data.untrusted``\ncase goes to the dataset's owner until the data is right again (``data.trusted``).",
+      "properties": {
+        "fresh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fresh"
+        },
+        "max_age_hours": {
+          "default": 26,
+          "exclusiveMinimum": 0,
+          "title": "Max Age Hours",
+          "type": "number"
+        },
+        "min_rows": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Min Rows",
+          "type": "integer"
+        },
+        "unique": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unique",
+          "type": "array"
+        },
+        "not_null": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Not Null",
+          "type": "array"
+        },
+        "invalid": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Invalid",
+          "type": "object"
+        },
+        "types": {
+          "additionalProperties": {
+            "enum": [
+              "boolean",
+              "integer",
+              "number",
+              "time",
+              "text"
+            ],
+            "type": "string"
+          },
+          "title": "Types",
+          "type": "object"
+        }
+      },
+      "title": "DataChecks",
+      "type": "object"
+    },
+    "DataTrust": {
+      "additionalProperties": false,
+      "description": "Data trust caps autonomy per scope (Layer A -> B). A scope's score (0..1, e.g. a store's record accuracy,\nreceiving lag, unit errors) is set by monitoring; below ``act_min`` agents there only PROPOSE, below\n``propose_min`` they only OBSERVE, whatever trust their templates earned elsewhere. Scores older than\n``max_age_hours`` count as unknown; ``unknown`` says what an unknown score means (none: no cap).",
+      "properties": {
+        "act_min": {
+          "default": 0.95,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Act Min",
+          "type": "number"
+        },
+        "propose_min": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Propose Min",
+          "type": "number"
+        },
+        "max_age_hours": {
+          "default": 48,
+          "exclusiveMinimum": 0,
+          "title": "Max Age Hours",
+          "type": "number"
+        },
+        "unknown": {
+          "default": "none",
+          "title": "Unknown",
+          "type": "string"
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sources"
+        }
+      },
+      "title": "DataTrust",
+      "type": "object"
+    },
+    "Dataset": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "sql",
+            "http",
+            "file",
+            "overlay",
+            "sentinel",
+            "lookup"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataChecks"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "refresh_minutes": {
+          "default": 15,
+          "minimum": 1,
+          "title": "Refresh Minutes",
+          "type": "integer"
+        },
+        "dsn_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsn Env"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Items"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lookup"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "each": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Each"
+        },
+        "columns": {
+          "additionalProperties": true,
+          "title": "Columns",
+          "type": "object"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        },
+        "pages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pages"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "vars": {
+          "additionalProperties": true,
+          "title": "Vars",
+          "type": "object"
+        },
+        "append": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Append",
+          "type": "array"
+        },
+        "derive": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Derive",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Dataset",
+      "type": "object"
+    },
+    "Emit": {
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "each": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Each"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Payload"
+        },
+        "tenant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant"
+        },
+        "correlation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Correlation"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Emit",
+      "type": "object"
+    },
+    "EscalationRule": {
+      "additionalProperties": false,
+      "description": "How often an unanswered review is sent again once it has reached the top of the role tree.",
+      "properties": {
+        "repeat": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repeat"
+        },
+        "stop_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop At"
+        }
+      },
+      "title": "EscalationRule",
+      "type": "object"
+    },
+    "FingerprintRule": {
+      "properties": {
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "buckets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Bucket"
+          },
+          "title": "Buckets",
+          "type": "object"
+        },
+        "group_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Group By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "event_type"
+      ],
+      "title": "FingerprintRule",
+      "type": "object"
+    },
+    "HttpAction": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "request": {
+          "$ref": "#/$defs/HttpRequest"
+        },
+        "compensate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ok_status": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Ok Status",
+          "type": "array"
+        },
+        "ok_when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ok When"
+        },
+        "safe": {
+          "default": false,
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "max_attempts": {
+          "default": 3,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "timeout_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout S"
+        },
+        "idempotency_header": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "Idempotency-Key",
+          "title": "Idempotency Header"
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "title": "HttpAction",
+      "type": "object"
+    },
+    "HttpLookup": {
+      "description": "A read-only tool the model and playbooks may call: an HTTP GET (or a read-only query sent as POST, e.g.\nTally's XML export or a GraphQL query, declared with ``reads_only: true``).\n\n    lookups:\n      shiprocket.track:\n        description: Where a shipment is, by AWB\n        params: {awb: str}\n        request: {method: GET, url: \"https://apiv2.shiprocket.in/v1/external/courier/track/awb/{{params.awb}}\",\n                  headers: {Authorization: \"Bearer {{auth.shiprocket}}\"}}\n        result: body.tracking_data          # only this part goes back (keeps the model's view small)",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "request": {
+          "$ref": "#/$defs/HttpRequest"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "reads_only": {
+          "default": false,
+          "title": "Reads Only",
+          "type": "boolean"
+        },
+        "max_chars": {
+          "default": 6000,
+          "maximum": 50000,
+          "minimum": 200,
+          "title": "Max Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "title": "HttpLookup",
+      "type": "object"
+    },
+    "HttpRequest": {
+      "properties": {
+        "method": {
+          "default": "POST",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "default": null,
+          "title": "Body"
+        },
+        "timeout_s": {
+          "default": 20.0,
+          "exclusiveMinimum": 0,
+          "maximum": 120,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "HttpRequest",
+      "type": "object"
+    },
+    "MCPServer": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "transport": {
+          "enum": [
+            "http",
+            "stdio"
+          ],
+          "title": "Transport",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Env",
+          "type": "object"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transport",
+        "tools"
+      ],
+      "title": "MCPServer",
+      "type": "object"
+    },
+    "Pages": {
+      "additionalProperties": false,
+      "description": "Read page after page: ``{{page}}`` in the lookup's args counts from ``start``; reading stops at an empty\npage, a page shorter than ``size`` (when given) or after ``max`` pages.",
+      "properties": {
+        "start": {
+          "default": 1,
+          "title": "Start",
+          "type": "integer"
+        },
+        "max": {
+          "default": 20,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Max",
+          "type": "integer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        }
+      },
+      "title": "Pages",
+      "type": "object"
+    },
+    "Pattern": {
+      "description": "A registry entry: what an incident type is and how it may be resolved.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array"
+        },
+        "match": {
+          "additionalProperties": true,
+          "title": "Match",
+          "type": "object"
+        },
+        "route": {
+          "$ref": "#/$defs/Route",
+          "default": "hitl"
+        },
+        "max_route": {
+          "$ref": "#/$defs/Route",
+          "default": "auto"
+        },
+        "playbook": {
+          "items": {
+            "$ref": "#/$defs/PlaybookStep"
+          },
+          "title": "Playbook",
+          "type": "array"
+        },
+        "allowed_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Actions",
+          "type": "array"
+        },
+        "disposition_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Disposition Codes",
+          "type": "array"
+        },
+        "owner_role": {
+          "default": "operator",
+          "title": "Owner Role",
+          "type": "string"
+        },
+        "escalation_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escalation Role"
+        },
+        "owner_slot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Slot"
+        },
+        "escalation_slot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escalation Slot"
+        },
+        "sla_minutes": {
+          "default": 240,
+          "title": "Sla Minutes",
+          "type": "integer"
+        },
+        "severity": {
+          "default": "medium",
+          "title": "Severity",
+          "type": "string"
+        },
+        "llm_min_confidence": {
+          "default": 0.8,
+          "title": "Llm Min Confidence",
+          "type": "number"
+        },
+        "group_window_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Window Minutes"
+        },
+        "inhibited_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inhibited By",
+          "type": "array"
+        },
+        "inhibit_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inhibit On",
+          "type": "array"
+        },
+        "playbook_disposition": {
+          "default": "resolved",
+          "title": "Playbook Disposition",
+          "type": "string"
+        },
+        "llm_instructions": {
+          "default": "",
+          "title": "Llm Instructions",
+          "type": "string"
+        },
+        "model_task": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Task"
+        },
+        "sop": {
+          "default": "",
+          "title": "Sop",
+          "type": "string"
+        },
+        "brief_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Brief Fields",
+          "type": "array"
+        },
+        "trust_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Trust By",
+          "type": "array"
+        },
+        "trust_pool_min": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trust Pool Min"
+        },
+        "digest_above": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest Above"
+        },
+        "digest_every_minutes": {
+          "default": 60,
+          "minimum": 5,
+          "title": "Digest Every Minutes",
+          "type": "integer"
+        },
+        "money_fact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Money Fact"
+        },
+        "data_trust_exempt": {
+          "default": false,
+          "title": "Data Trust Exempt",
+          "type": "boolean"
+        },
+        "spot_check_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spot Check Rate"
+        },
+        "claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "claim_minutes": {
+          "default": 60,
+          "minimum": 1,
+          "title": "Claim Minutes",
+          "type": "integer"
+        },
+        "llm_max_steps": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Llm Max Steps",
+          "type": "integer"
+        },
+        "diagnose": {
+          "default": true,
+          "title": "Diagnose",
+          "type": "boolean"
+        },
+        "shadow": {
+          "default": false,
+          "title": "Shadow",
+          "type": "boolean"
+        },
+        "effort_minutes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort Minutes"
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "outcome_check": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome Check"
+        },
+        "escalation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EscalationRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clear_when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClearWhen"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expires_after_hours": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires After Hours"
+        },
+        "pause_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pause On",
+          "type": "array"
+        },
+        "capability": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "layer": {
+          "default": "",
+          "title": "Layer",
+          "type": "string"
+        },
+        "overridden_in": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Overridden In",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "event_types"
+      ],
+      "title": "Pattern",
+      "type": "object"
+    },
+    "PlaybookStep": {
+      "description": "One step of a playbook (or of a proposal, where only action steps appear).\n\naction  do something (params may be templates)       lookup  read-only tool; result kept under `as`\nclose   finish with no action (with `disposition`)   when    the step runs only if this holds",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lookup"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "as": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As"
+        },
+        "close": {
+          "default": false,
+          "title": "Close",
+          "type": "boolean"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "disposition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disposition"
+        }
+      },
+      "title": "PlaybookStep",
+      "type": "object"
+    },
+    "Present": {
+      "description": "What an expect source reads to see what has happened: an API (url) or a read-only table query.",
+      "properties": {
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "method": {
+          "default": "GET",
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Items"
+        },
+        "dsn_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsn Env"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "title": "Present",
+      "type": "object"
+    },
+    "Route": {
+      "description": "How an incident gets resolved. Ordered from least to most autonomous.",
+      "enum": [
+        "hitl",
+        "llm",
+        "auto"
+      ],
+      "title": "Route",
+      "type": "string"
+    },
+    "Signature": {
+      "description": "hmac: the header carries an HMAC of the body (Shopify). token: the header carries a shared\ntoken as it is (Shiprocket's x-api-key, a Delhivery or Zoho custom header).",
+      "properties": {
+        "header": {
+          "title": "Header",
+          "type": "string"
+        },
+        "secret_env": {
+          "title": "Secret Env",
+          "type": "string"
+        },
+        "mode": {
+          "default": "hmac",
+          "enum": [
+            "hmac",
+            "token"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "encoding": {
+          "default": "hex",
+          "enum": [
+            "hex",
+            "base64"
+          ],
+          "title": "Encoding",
+          "type": "string"
+        },
+        "algorithm": {
+          "default": "sha256",
+          "enum": [
+            "sha256",
+            "sha1"
+          ],
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "prefix": {
+          "default": "",
+          "title": "Prefix",
+          "type": "string"
+        }
+      },
+      "required": [
+        "header",
+        "secret_env"
+      ],
+      "title": "Signature",
+      "type": "object"
+    },
+    "Source": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "webhook",
+            "poll",
+            "sql",
+            "expect"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "emit": {
+          "items": {
+            "$ref": "#/$defs/Emit"
+          },
+          "title": "Emit",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "tenant": {
+          "default": "default",
+          "title": "Tenant",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Signature"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "every_s": {
+          "default": 300,
+          "title": "Every S",
+          "type": "integer"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "method": {
+          "default": "GET",
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Items"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "format": {
+          "default": "json",
+          "enum": [
+            "json",
+            "xml"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "dsn_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsn Env"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "tz": {
+          "default": "Asia/Kolkata",
+          "title": "Tz",
+          "type": "string"
+        },
+        "days": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "mon",
+                  "tue",
+                  "wed",
+                  "thu",
+                  "fri",
+                  "sat",
+                  "sun"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Days"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "present": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Present"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "match_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match On"
+        }
+      },
+      "required": [
+        "kind",
+        "emit"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  }
+}

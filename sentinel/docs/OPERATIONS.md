@@ -90,6 +90,10 @@ unattended:
   - {resolver: auto, action: push_stock_to_channel}                  # no amount: no limit
 ```
 
+**Editor support.** Every configuration kind has a JSON Schema in `schemas/`; add
+`# yaml-language-server: $schema=<path>/schemas/<kind>.schema.json` as the first line of a file for autocomplete
+and early errors (see `docs/SCHEMAS.md`). `sentinel validate` and the console check remain the full check.
+
 ## Environments and promotion (dev, staging, production)
 
 Name each site's environment with `SENTINEL_ENV=dev|staging|prod`; it appears in `/healthz` and as a badge
@@ -402,6 +406,34 @@ again and recognised as duplicates by their keys). Better, add a unique tie-brea
 item.updated_at, tie: item.id}` - and query `WHERE (updated_at, id) > (%(cursor)s, %(cursor_tie)s)` (or
 `{{cursor}}` / `{{cursor_tie}}` in a polled URL): then no row is skipped or re-read. Duplicates are recognised
 per tenant and source, so the same key from two systems is two events.
+
+### CloudEvents (open standard, structured and binary)
+
+`POST /v1/cloudevents` accepts [CloudEvents 1.0](https://cloudevents.io) over HTTP, in both modes, for any system
+or broker that already speaks it. It is the same receiver as `POST /v1/events`: the same service bearer token,
+rate limit and size caps (the body is capped at four times `max_event_bytes`, the payload at `max_event_bytes`),
+and the same idempotency rule.
+
+| CloudEvents | Sentinel event |
+|---|---|
+| `id` | `idempotency_key` (a repeated id from the same `source` is a duplicate, whichever mode it came in) |
+| `source`, `type` | `source`, `type` |
+| `time` | `occurred_at` (RFC 3339 with an offset; absent means now) |
+| `subject` | `payload.ce_subject` |
+| `data` | `payload` (a JSON object as is; any other JSON value as `{"value": ...}`) |
+| extension `tenant`, `correlationid` | `tenant`, `correlation_id` (other extensions are ignored) |
+
+- **Structured:** `Content-Type: application/cloudevents+json`, the whole event as the JSON body (`data_base64`
+  is accepted when it holds JSON).
+- **Binary:** `ce-id`, `ce-type`, `ce-source`, `ce-specversion: 1.0` (and optionally `ce-time`, `ce-subject`)
+  headers, percent-decoded, with the data as the body (`application/json`, or `text/*`).
+- **Refused with a clear message:** a missing or empty `id`, `source`, `type` or `specversion`, a `specversion`
+  other than `1.0`, a `time` that is not RFC 3339 with an offset, a malformed body (400); batch mode,
+  other formats and other data types (415); oversize (413); no or a wrong token (401, 403).
+
+**Event contracts.** `docs/asyncapi.yaml` (AsyncAPI 3.0) describes the event envelope, the CloudEvents form and each
+event type the shipped templates and connectors use, with the payload fields the fingerprint rules read. It is
+generated (`python scripts/gen_asyncapi.py`, checked in tests) so it cannot drift from the code.
 
 ### "Did not happen by" exceptions (expect sources)
 
@@ -927,6 +959,28 @@ Prometheus does).
 `/healthz` returns `degraded` with reasons when there are dead jobs or the queue lags. Logs are JSON
 (`sentinel.engine`, `sentinel.worker`) with incident and review ids; secret-looking keys are redacted in
 logs and in the audit trail.
+
+### Traces (OpenTelemetry, optional)
+
+Beside the Prometheus metrics, Sentinel can emit OpenTelemetry traces using the GenAI semantic conventions. It is
+**off** unless asked for, and needs the optional extra: `pip install "kbg-sentinel[otel]"` (the API and SDK).
+
+- Turn it on with `SENTINEL_OTEL=1` in the environment of the API and the workers. If the extra is not installed,
+  Sentinel logs one warning and runs without traces; it never fails on it.
+- Sentinel uses the global tracer provider, so you choose the exporter the usual way: set up the SDK in your
+  entry point, or run under `opentelemetry-instrument` with the `OTEL_*` variables. Sentinel does not pick a
+  backend for you.
+- **Spans.** `sentinel.case.handle` for each case handled (attributes `sentinel.incident_id`, `sentinel.pattern_id`,
+  `sentinel.tenant`, `sentinel.route`, and `sentinel.state` at the end; the case facts are not attached), and under it one
+  `chat <model>` span per model call with `gen_ai.operation.name`, `gen_ai.system`, `gen_ai.provider.name`,
+  `gen_ai.request.model`, `gen_ai.response.model` (the model that actually answered, after a fallback),
+  `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` (when the provider reports them), `error.type` and an
+  error status on failure, plus `sentinel.task` and `sentinel.shadow`.
+- **Prompts and replies are not in spans.** That is Sentinel's privacy rule everywhere. Only the explicit opt-in
+  `SENTINEL_OTEL_CAPTURE_CONTENT=1` adds `gen_ai.system_instructions`, `gen_ai.input.messages` and
+  `gen_ai.output.messages`; they can hold personal data and business facts, so use it only with a backend you would
+  trust with the cases themselves.
+- From code that embeds Sentinel: `sentinel.otel.configure(tracer_provider=..., capture_content=False)`.
 
 ## Backups, restores and retention
 
