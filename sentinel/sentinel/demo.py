@@ -482,7 +482,8 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as e:
         print(f"could not listen on {a.host}:{a.port}: {e}", file=sys.stderr)
         return 1
-    print(banner(demo.base, eng, a.db))
+    shown = f"http://localhost:{demo.port}" if a.host in ("0.0.0.0", "::") else demo.base   # noqa: S104
+    print(banner(shown, eng, a.db))
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):      # explicit, so Ctrl-C works even if started in the background
         signal.signal(sig, lambda *_: stop.set())
