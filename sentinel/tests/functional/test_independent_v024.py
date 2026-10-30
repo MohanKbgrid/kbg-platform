@@ -135,9 +135,9 @@ class Rig:
         if llm is not None:
             kw["llm"] = llm
         if store is not None:
-            self.eng = Engine(ov, store=store, licence=False, **kw)
+            self.eng = Engine(ov, store=store, **kw)
         elif db:
-            self.eng = Engine(ov, store=SQLiteStore(db), licence=False, **kw)
+            self.eng = Engine(ov, store=SQLiteStore(db), **kw)
         else:
             self.eng = engine_for(ov, **kw)
         self.keydir = tempfile.mkdtemp()

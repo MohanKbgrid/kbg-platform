@@ -109,7 +109,7 @@ class Engine:
                  metrics: Metrics | None = None, max_event_bytes: int = 256_000, max_payload_depth: int = 16,
                  embedder: Any = None, similar_k: int = 5, sync_config: bool = True,
                  answer_token_days: float = 7.0, default_action_timeout_s: float | None = 120.0,
-                 tool_timeout_s: float = 30.0, licence: Any = None) -> None:
+                 tool_timeout_s: float = 30.0) -> None:
         import copy
         # this engine's own copy: publishing replaces its patterns, roles and edges, and must never reach
         # another engine built from the same overlay object (hosted tenants, tests, a second worker)
@@ -168,10 +168,6 @@ class Engine:
         self._base_edges = dict(overlay.edges)          # the overlay's own; configured edges are added to these
         self.connectors: Any = None
         self.http_opener: Any = None                    # tests and proxies: urllib opener for configured actions
-        if licence is None:
-            from .licence import LicenceGuard
-            licence = LicenceGuard.from_env()           # None on an open-source install: nothing enforced
-        self.licence = licence or None                  # False: never check (tests, tools)
         self._explicit_embedder = embedder
         self.tool_timeout_s = tool_timeout_s
         self.async_mode = async_mode
@@ -1156,8 +1152,6 @@ class Engine:
             route = cap
         if route is Route.LLM and self.llm is None:
             route = Route.HITL
-        if route is not Route.HITL and self.licence is not None and self.licence.degraded(self):
-            route = Route.HITL                          # no valid licence: people decide; nothing stops
         pol = self.agent_policy(pattern, facts)
         if pol is not None and pol.mode == "PROPOSE":
             route = Route.HITL                          # a person approves every proposal in this scope
@@ -3264,14 +3258,6 @@ class Engine:
                "open_reviews": counts["open"], "overdue_reviews": counts["overdue"]}
         from .bundles import environment
         out["environment"] = environment()
-        if self.licence is not None:
-            try:
-                lic = self.licence.status(self)
-                out["licence"] = lic["state"]
-                if lic["state"] == "degraded":          # still serving: people decide every case
-                    out["problems"] = [*problems, "licence: " + "; ".join(lic["reasons"])]
-            except Exception as e:  # noqa: BLE001 - the licence never takes the site down
-                out["licence"] = f"unknown: {type(e).__name__}"
         return out
 
     def can_view_incident(self, person_id: str, inc: Incident) -> bool:

@@ -14,7 +14,7 @@ One document per site and calendar month (UTC), per tenant:
   model                calls, tokens and estimated cost;  messages   review cards sent, by edge
 
 The document is canonical JSON with a SHA-256 digest, an HMAC-SHA256 signature made with the site's usage key
-(``SENTINEL_SECRET_USAGE_KEY``, issued with the licence) and the digest of the previous month's export, so a
+(``SENTINEL_SECRET_USAGE_KEY``, issued with the site) and the digest of the previous month's export, so a
 gap or an edited month shows. ``verify`` checks a document with the same key.
 """
 from __future__ import annotations

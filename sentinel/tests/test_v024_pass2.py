@@ -312,7 +312,7 @@ def test_the_same_receipt_posted_twice_at_once_is_recorded_once(tmp_path):
     from sentinel import Engine, SQLiteStore
     eng0, _ = engine(directory())
     db = str(tmp_path / "s.db")
-    engines = [Engine(eng0.overlay, store=SQLiteStore(db), licence=False, clock=FrozenClock(NOW)) for _ in range(2)]
+    engines = [Engine(eng0.overlay, store=SQLiteStore(db), clock=FrozenClock(NOW)) for _ in range(2)]
     rows = [{**GOOD, "id": f"r{i}"} for i in range(40)]
     outs = []
     ts = [threading.Thread(target=lambda e=e: outs.append(e.record_receipts(rows))) for e in engines]

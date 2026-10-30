@@ -187,7 +187,7 @@ def test_G3_concurrent_scores_keep_every_index_entry(keys, tmp_path):  # noqa: F
     from sentinel.models import DataTrust
     base = osync_engine(keys)
     db = str(tmp_path / "s.db")
-    engines = [Engine(base.overlay, store=SQLiteStore(db), licence=False, clock=base.clock) for _ in range(4)]
+    engines = [Engine(base.overlay, store=SQLiteStore(db), clock=base.clock) for _ in range(4)]
     for e in engines:
         e.case_defaults.data_trust = DataTrust()
     barrier = threading.Barrier(4)

@@ -3,7 +3,7 @@
 """Hosted mode: many customers (tenants) in one service, each fully separate.
 
 Each tenant gets its own database schema and connection pool, its own engine and configuration (an overlay
-or a packs file), its own tokens and single sign-on, its own licence and its own secrets: a tenant's
+or a packs file), its own tokens and single sign-on, its own secrets: a tenant's
 configuration can only read environment variables named ``SENTINEL_SECRET_<TENANT>_...`` (or
 ``SENTINEL_EDGE_<TENANT>_...``). Requests reach a tenant by host name or by the ``/t/<tenant>/`` prefix;
 workers take turns between tenants by weight, so one busy tenant cannot starve the others.
@@ -18,7 +18,6 @@ workers take turns between tenants by weight, so one busy tenant cannot starve t
         hosts: [acme.sentinel.example.in]
         ingest_per_minute: 600
         weight: 2                                   # share of worker turns
-        licence: tenants/acme/licence.txt           # optional, with licence_keys
 """
 from __future__ import annotations
 
@@ -46,8 +45,6 @@ class TenantSpec(BaseModel):
     hosts: list[str] = Field(default_factory=list)
     ingest_per_minute: int = 600
     weight: int = Field(default=1, ge=1, le=20)
-    licence: str | None = None
-    licence_keys: str | None = None
 
 
 class HostedSpec(BaseModel):
@@ -114,7 +111,6 @@ def build(path: str | Path, *, async_mode: bool = True, store_factory: Any = Non
     if not dsn and store_factory is None:
         raise ValueError(f"set {spec.dsn_env} to the PostgreSQL DSN")
     from .engine import Engine
-    from .licence import LicenceGuard, load_keys, load_token
     hosted = Hosted()
     for name, t in spec.tenants.items():
         token = TENANT.set(name)
@@ -131,11 +127,7 @@ def build(path: str | Path, *, async_mode: bool = True, store_factory: Any = Non
                 mod, _, attr = (t.overlay or "").partition(":")
                 obj = getattr(importlib.import_module(mod), attr or "build_overlay")
                 overlay = obj() if callable(obj) else obj
-            lic: Any = False
-            if t.licence:
-                lic = LicenceGuard(load_token(str(base / t.licence)),
-                                   load_keys(str(base / t.licence_keys)) if t.licence_keys else [], site=name)
-            eng = Engine(overlay, store=store, async_mode=async_mode, licence=lic)
+            eng = Engine(overlay, store=store, async_mode=async_mode)
             hosted.tenants[name] = Tenant(name, t, eng)
         finally:
             TENANT.reset(token)

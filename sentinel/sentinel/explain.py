@@ -241,9 +241,6 @@ def _route(engine: Engine, pattern: Pattern, facts: dict[str, Any], rules: list[
                                                                  else "")
     if route is Route.LLM and engine.llm is None:
         route, why = Route.HITL, why + "; no model configured, so a person"
-    lic = getattr(engine, "licence", None)
-    if route is not Route.HITL and lic is not None and lic.degraded(engine):
-        route, why = Route.HITL, why + "; the licence is not valid, so a person decides"
     pol = engine.agent_policy(pattern, facts)
     if pol is not None and pol.mode == "PROPOSE" and route is not Route.HITL:
         route, why = Route.HITL, why + "; agent mode PROPOSE in this scope, so a person approves"

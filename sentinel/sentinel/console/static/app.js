@@ -219,7 +219,7 @@ function showError(e) {
 const NAV = [
   ["Operate", [["overview", "Overview"], ["reviews", "Reviews"], ["capabilities", "Capabilities"], ["metrics", "Metrics"], ["silences", "Silences"], ["cases", "Cases"], ["exceptions", "Exceptions"],
     ["trace", "Trace an event"], ["value", "Value"], ["learning", "Learning"], ["insights", "Insights"], ["activity", "Activity"]]],
-  ["Configure", [["setup", "Set up from a template"], ["golive", "Go live"], ["plan", "Plan & usage"], ["privacy", "Privacy"], ["fleet", "Fleet"], ["people", "People & roles"], ["agents", "Agents & oversight"], ["connectors", "Data sources & tools"], ["keys", "Keys"],
+  ["Configure", [["setup", "Set up from a template"], ["golive", "Go live"], ["plan", "Usage"], ["privacy", "Privacy"], ["fleet", "Fleet"], ["people", "People & roles"], ["agents", "Agents & oversight"], ["connectors", "Data sources & tools"], ["keys", "Keys"],
     ["models", "Models"], ["access", "Access"], ["changes", "Changes"]]],
 ];
 
@@ -1552,13 +1552,12 @@ PAGES.fleet = async () => {
     h("td", { class: "mono small" }, s.version || "–"),
     h("td", {}, s.reachable ? h("span", { class: `badge ${s.health === "ok" && !(s.problems || []).length ? "b-ok" : "b-bad"}` }, s.health) : h("span", { class: "badge b-bad" }, "unreachable"),
       s.error ? h("div", { class: "small faint" }, s.error) : null),
-    h("td", { class: "small" }, s.licence ? `${s.licence.state}${s.licence.valid_until ? ` · until ${s.licence.valid_until}` : ""}` : s.reachable ? "not enforced" : "–"),
     h("td", { class: "small" }, s.reachable ? ago(s.last_backup) : "–"),
     h("td", { class: "num" }, s.open_reviews ?? "–"), h("td", { class: "num" }, s.reachable ? `${s.live}/${s.patterns}` : "–"),
     h("td", { class: "small" }, (s.flags || []).map((x) => h("span", { class: "badge b-plain", style: "margin-right:4px" }, x)),
       s.upgrade ? h("details", {}, h("summary", { class: "small" }, "Upgrade commands"), h("pre", { class: "code small" }, s.upgrade.join("\n"))) : null)));
   shell("fleet", "Fleet", `${f.summary.sites} site(s), ${f.summary.attention} need attention${f.target_version ? ` · target version ${f.target_version}` : ""}`, [h("button", { onclick: route }, "Refresh")],
-    h("div", { class: "card", style: "padding:0" }, h("table", {}, h("thead", {}, h("tr", {}, ["Site", "Version", "Health", "Licence", "Last backup", "Open reviews", "Live", ""].map((x) => h("th", {}, x)))), h("tbody", {}, rows))));
+    h("div", { class: "card", style: "padding:0" }, h("table", {}, h("thead", {}, h("tr", {}, ["Site", "Version", "Health", "Last backup", "Open reviews", "Live", ""].map((x) => h("th", {}, x)))), h("tbody", {}, rows))));
 };
 
 // ---- agents & oversight (ADR-003/005)
@@ -1705,14 +1704,6 @@ function oversightForm(a) {
 // ---- plan & usage
 PAGES.plan = async () => {
   const p = await api("/console/api/plan");
-  const L = p.licence;
-  const STATE = { ok: ["valid", "b-ok"], grace: ["valid, with warnings", "b-info"], degraded: ["not valid: people decide every case", "b-bad"] };
-  const lic = !p.enforced ? h("div", { class: "card" }, h("h3", {}, "Licence"), h("p", { class: "small" }, "Not enforced: this is an open-source install (SENTINEL_LICENCE is not set)."))
-    : h("div", { class: "card" }, h("h3", {}, "Licence ", h("span", { class: `badge ${STATE[L.state][1]}` }, STATE[L.state][0])),
-      L.licence ? h("div", { class: "kv" }, h("div", {}, "Licensee"), h("div", {}, L.licence.licensee), h("div", {}, "Site"), h("div", {}, L.licence.site),
-        h("div", {}, "Tier"), h("div", {}, L.licence.tier), h("div", {}, "Valid"), h("div", {}, `${L.licence.valid_from} to ${L.licence.valid_until}`),
-        h("div", {}, "Includes"), h("div", { class: "small" }, Object.entries(L.licence.limits || {}).filter(([, v]) => v !== null).map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`).join(" · ") || "–")) : null,
-      L.reasons.length ? h("ul", { class: "small" }, L.reasons.map((r) => h("li", {}, r))) : null);
   const u = p.usage;
   const tenants = u ? Object.entries(u.tenants) : [];
   const use = u ? h("div", { class: "card" }, h("h3", {}, `Usage in ${p.month}`), tenants.length ? h("table", {}, h("thead", {}, h("tr", {}, ["Tenant", "Cases", "Automatic", "By people", "Reviewers", "Reversed", "Model calls"].map((x, i) => h("th", { class: i ? "num" : null }, x)))),
@@ -1722,7 +1713,7 @@ PAGES.plan = async () => {
       h("p", { class: "small faint" }, "Automatic resolutions count once they are not reversed within the reversal window. The signed export for a month is final a week after it ends."),
       h("div", { class: "row" }, h("input", { id: "usage-month", value: lastMonth(), style: "width:120px" }),
         h("button", { onclick: () => downloadUsage(document.getElementById("usage-month").value) }, "Download signed export"))) : h("div", { class: "card small" }, "Usage figures need the __configure__ right.");
-  shell("plan", "Plan & usage", "The licence this site runs under and what this month's bill is based on", null, [lic, use]);
+  shell("plan", "Usage", "What this site did this month", null, [use]);
 };
 function lastMonth() { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); }
 async function downloadUsage(month) {

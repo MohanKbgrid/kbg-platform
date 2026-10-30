@@ -343,18 +343,7 @@ def main(argv: list[str] | None = None) -> int:
     aex.add_argument("--since-seal", type=int, default=0)
     avx = aus.add_parser("verify-export", help="check an export file offline")
     avx.add_argument("file")
-    li = sub.add_parser("licence", help="licence status; issuer tools (keygen, issue) for KBGrid")
-    lis = li.add_subparsers(dest="lcmd", required=True)
-    lis.add_parser("status")
-    lk = lis.add_parser("keygen", help="new issuer key pair (keep private.pem offline)")
-    lk.add_argument("--out", required=True)
-    lk.add_argument("--kid", required=True)
-    lisu = lis.add_parser("issue", help="sign a licence from a JSON payload")
-    lisu.add_argument("payload", help="JSON file: licensee, site, tier, valid_from, valid_until, limits, ...")
-    lisu.add_argument("--key", required=True, help="issuer private.pem")
-    lisu.add_argument("--kid", default=None)
-    lisu.add_argument("--out", default=None)
-    fl = sub.add_parser("fleet", help="every site KBGrid looks after: versions, health, licences, backups")
+    fl = sub.add_parser("fleet", help="every site KBGrid looks after: versions, health, backups")
     fls = fl.add_subparsers(dest="fcmd", required=True)
     fst = fls.add_parser("status", help="collect from the sites in a fleet file")
     fst.add_argument("--sites", default=os.environ.get("SENTINEL_FLEET"), help="fleet YAML")
@@ -516,24 +505,6 @@ def main(argv: list[str] | None = None) -> int:
         st = PostgresStore(a.pg or os.environ["SENTINEL_PG"], schema=a.schema, migrate=True)
         _p({"schema": a.schema, "version": st.schema_version(), "expected": _SCHEMA_HASH})
         st.close()
-        return 0
-    if a.cmd == "licence" and a.lcmd in ("keygen", "issue"):
-        from pathlib import Path
-
-        from .licence import LicenceError, issue, keygen
-        try:
-            if a.lcmd == "keygen":
-                _p(keygen(a.out, a.kid))
-                return 0
-            token = issue(a.key, json.loads(Path(a.payload).read_text(encoding="utf-8")), a.kid)
-        except (LicenceError, OSError, ValueError) as e:
-            print(f"error: {e}", file=sys.stderr)
-            return 1
-        if a.out:
-            Path(a.out).write_text(token + "\n", encoding="utf-8")
-            _p({"written": a.out})
-        else:
-            print(token)
         return 0
     if a.cmd == "fleet" and a.fcmd == "status":
         from .fleet import collect, load
@@ -751,13 +722,6 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 from .auditchain import export
                 _p(export(eng.store, a.out, since_seal=a.since_seal))
-        elif a.cmd == "licence":                     # status
-            if eng.licence is None:
-                _p({"state": "not enforced", "detail": "SENTINEL_LICENCE is not set (open-source install)"})
-                return 0
-            st = eng.licence.status(eng, fresh=True)
-            _p(st)
-            return 1 if st["state"] == "degraded" else 0
         elif a.cmd == "fleet":                       # self
             from .fleet import site_status
             _p(site_status(eng))

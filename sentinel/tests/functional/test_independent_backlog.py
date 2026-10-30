@@ -648,7 +648,7 @@ def served(tmp_path):
 
     from sentinel.api import Principal, create_app, token_hash
     ov = overlay(ppl=people(agents=AGENTS))
-    eng = Engine(ov, store=SQLiteStore(str(tmp_path / "h.db")), clock=FrozenClock(NOW), licence=False,
+    eng = Engine(ov, store=SQLiteStore(str(tmp_path / "h.db")), clock=FrozenClock(NOW),
                  guardrails=Guardrails())
     for a in (5, 900, 70, 30000, 1):
         claim(eng, amount=a)

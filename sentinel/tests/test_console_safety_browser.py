@@ -41,7 +41,7 @@ def served(tmp_path):
     ov = Overlay(name="r06", fingerprint_rules=doc.fingerprints, patterns=doc.patterns, roles=doc.roles,
                  actions=actions(world), directory=parse_directory(data), slots=doc.slots,
                  slot_bindings=doc.slot_bindings, case_defaults=doc.defaults)
-    eng = Engine(ov, store=SQLiteStore(str(tmp_path / "s.db")), licence=False,
+    eng = Engine(ov, store=SQLiteStore(str(tmp_path / "s.db")),
                  clock=FrozenClock(datetime(2026, 10, 20, 9, tzinfo=UTC)),
                  guardrails=Guardrails(allow_irreversible_unattended=True))
     eng.set_data_trust({"store": "TVM01"}, 0.99, source="ira")

@@ -295,8 +295,8 @@ Operational detail lives in [OPERATIONS.md](OPERATIONS.md).
 - **Going live** (`golive.py`): per-pattern `shadow:` in the registry, readiness checklist, switch as a
   published change. **Maker-checker**: `config_approval` in people.yaml.
 - **Templates**: `template:` layers, stub actions, `sentinel template init`.
-- **Commercial** (`licence.py`, `usage.py`, `value.py`, `fleet.py`): RS256 licences that degrade to human
-  review, a signed and chained monthly usage export, a value report in the site's currency, a fleet view.
+- **Operator reports** (`usage.py`, `value.py`, `fleet.py`): a signed and chained monthly usage export, a value
+  report in the site's currency, a fleet view. Nothing here gates a feature.
 - **Personal data** (`privacy.py`): access reports, erasure, scrubbing personal fields by age; docs/privacy.
 
 ## 20. Added in v0.11: platform
@@ -305,7 +305,7 @@ Operational detail lives in [OPERATIONS.md](OPERATIONS.md).
   without a global write lock; retention leaves tombstones and erasure leaves redactions, so the chain still
   verifies; export, independent verification and SIEM forwarding.
 - **Hosted mode** (`hosted.py`): one service, many tenants, each with its own schema, pool, engine, tokens,
-  SSO, licence and secrets scope (`SENTINEL_SECRET_<TENANT>_...`); routing by host or path; weighted worker
+  SSO and secrets scope (`SENTINEL_SECRET_<TENANT>_...`); routing by host or path; weighted worker
   turns. Every engine now copies its overlay, so publishing on one never changes another.
 - **Packs and catalogue** (`packs.py`, `catalogue.py`, `testing.py`): versioned packs with namespaced actions
   and tools, capabilities a site grants, settings and golden cases; console changes kept as a layer and

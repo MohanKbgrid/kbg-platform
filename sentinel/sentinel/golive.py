@@ -118,11 +118,6 @@ def readiness(engine: Engine, *, min_cases: int = MIN_SHADOW_CASES,
     check("patterns", "Live exceptions were proven in shadow first", not weak or None,
           f"went live with fewer than {min_cases} shadow cases: {weak}" if weak else f"{len(live)} live")
 
-    if getattr(engine, "licence", None) is not None:
-        lic = engine.licence.status(engine)
-        check("operations", "The licence is valid", {"ok": True, "grace": None}.get(lic["state"], False),
-              "; ".join(lic["reasons"]) or (lic.get("licence") or {}).get("tier", ""))
-
     # ---- operations ----------------------------------------------------------------------------------
     backups = store.recent_audit(1, ["backup_made"])
     if backups:

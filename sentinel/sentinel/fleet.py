@@ -3,7 +3,7 @@
 """Fleet view: every Sentinel site KBGrid looks after, on one page.
 
 Each site answers ``GET /v1/fleet/status`` (a service token whose principal is ``fleet``, or a person with
-__configure__) with its version, health, licence, last backup, last usage export and what is published. A
+__configure__) with its version, health, last backup, last usage export and what is published. A
 fleet file lists the sites to collect from::
 
     sites:
@@ -78,12 +78,6 @@ def site_status(engine: Engine) -> dict[str, Any]:
     from . import __version__
     store = engine.store
     h = engine.health()
-    lic = None
-    if engine.licence is not None:
-        st = engine.licence.status(engine)
-        lic = {"state": st["state"], "reasons": st["reasons"],
-               "valid_until": (st.get("licence") or {}).get("valid_until"),
-               "tier": (st.get("licence") or {}).get("tier")}
     backups = store.recent_audit(1, ["backup_made"])
     usage = store.recent_audit(1, ["usage_exported"])
     sv = getattr(store, "schema_version", None)
@@ -96,7 +90,7 @@ def site_status(engine: Engine) -> dict[str, Any]:
             "version": __version__, "schema": sv() if callable(sv) else None,
             "store": type(store).__name__, "now": engine.clock().astimezone(UTC).isoformat(),
             "health": h.get("status"), "problems": h.get("problems", []), "open_reviews": h.get("open_reviews"),
-            "overdue_reviews": h.get("overdue_reviews"), "licence": lic,
+            "overdue_reviews": h.get("overdue_reviews"),
             "last_backup": backups[0]["ts"] if backups else None,
             "last_usage_export": (usage[0]["data"] | {"ts": usage[0]["ts"]}) if usage else None,
             "config": cfg, "patterns": len(engine.registry.all()),
@@ -138,8 +132,6 @@ def collect(fleet: FleetFile, *, opener: Any = None, timeout_s: float = 10.0) ->
         else:
             if r.get("health") != "ok" or r.get("problems"):
                 flags.append("unhealthy")
-            if (r.get("licence") or {}).get("state") in ("degraded", "grace"):
-                flags.append(f"licence {r['licence']['state']}")
             if r.get("last_backup") is None:
                 flags.append("no backup")
             target = fleet.target_for(r["name"])

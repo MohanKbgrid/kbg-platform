@@ -647,11 +647,10 @@ def mount_console(app: FastAPI, engine: Engine, person: Any, sso: Any = None) ->
 
     @api.get("/plan")
     def plan(p: Any = Depends(person)) -> dict[str, Any]:
-        """Licence and this month's usage (what the bill is based on)."""
+        """This month's usage."""
         from ..usage import measure
         month = engine.clock().strftime("%Y-%m")
-        lic = engine.licence.status(engine) if engine.licence is not None else None
-        return {"licence": lic, "enforced": engine.licence is not None, "month": month,
+        return {"month": month,
                 "usage": measure(engine, month) if can(p.id, "__configure__") else None}
 
     @api.get("/usage/{month}")

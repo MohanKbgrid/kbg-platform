@@ -5,7 +5,7 @@ The policies alongside this file describe how KBGrid runs development and suppor
 
 | Area | Control | Where |
 |---|---|---|
-| Hosting | Runs on the customer's own server or a KBGrid-hosted tenant with its own database schema, pool, tokens, secrets scope and licence | `deploy/site`, `sentinel/hosted.py` |
+| Hosting | Runs on the customer's own server or a KBGrid-hosted tenant with its own database schema, pool, tokens and secrets scope | `deploy/site`, `sentinel/hosted.py` |
 | Authentication | Single sign-on (OpenID Connect) with verified email and account binding; API tokens stored only as SHA-256 hashes; console sessions and tokens can expire and are revoked at once | `sentinel/sso.py`, `sentinel/access.py` |
 | Provisioning | SCIM 2.0 from Entra ID / Okta / Google; deactivation takes effect at once | `sentinel/scim.py` |
 | Authorisation | Roles with hierarchy and scope; per-action authority with amount limits; rights for configuration, access, kill switch, promotion and reversal; case visibility limited to the roles that work it | `sentinel/rbac.py` |

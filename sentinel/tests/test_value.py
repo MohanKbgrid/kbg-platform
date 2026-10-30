@@ -48,7 +48,7 @@ def test_plan_usage_and_value_endpoints(engine_factory):
     H, R = {"Authorization": "Bearer h"}, {"Authorization": "Bearer r"}
     assert c.get("/console/api/value", headers=R).json()["total"]["automatic"] == 1
     plan = c.get("/console/api/plan", headers=H).json()
-    assert plan["enforced"] is False and plan["usage"]["tenants"]["default"]["resolved_automatic"] == 1
+    assert "enforced" not in plan and "licence" not in plan and plan["usage"]["tenants"]["default"]["resolved_automatic"] == 1
     assert c.get("/console/api/plan", headers=R).json()["usage"] is None
     month = eng.clock().strftime("%Y-%m")
     r = c.get(f"/console/api/usage/{month}", headers=H)

@@ -787,17 +787,10 @@ edges:
   replies are checked against the app secret, matched to the person by number and go through RBAC like any
   answer. Unknown numbers and refused answers are recorded in the audit trail.
 
-## Licence, usage and value
+## Usage and value
 
-**Licence.** Sentinel is open source and needs no licence. A commercial install sets `SENTINEL_SITE_ID`,
-`SENTINEL_LICENCE` (the licence token or a file holding it) and `SENTINEL_LICENCE_KEYS` (the issuer's public
-keys). A licence that is valid works normally; one that expired within its grace period, or a site over a
-soft limit, keeps working and is flagged on **Plan & usage**, in `/healthz` and on the go-live checklist. A
-missing, altered, wrong-site or long-expired licence, or a hard cap exceeded, puts the site in *degraded*
-mode: every exception goes to a person, while events, reviews, decisions, reversals and reports carry on.
-Nothing ever stops. KBGrid issues licences with `sentinel licence keygen --out keys/ --kid kbgrid-2026`
-(once; keep `private.pem` offline) and `sentinel licence issue payload.json --key keys/private.pem`.
-`sentinel licence status` shows where a site stands.
+**No licence.** Sentinel is open source (Apache-2.0). Nothing is gated, capped or switched off by a licence
+check, and there is no licence key to set. `SENTINEL_SITE_ID` names the site in the fleet view and the usage export.
 
 **Usage export.** `sentinel usage --month 2026-10 --out usage-2026-10.json` (or **Download signed export**)
 reports, per tenant: cases, events, automatic resolutions that were not reversed and did not fail their
@@ -834,7 +827,7 @@ chain, but not one signed with a key they do not have, nor one already shipped e
 
 For small customers without their own server, one service can host many tenants. Each gets its own
 PostgreSQL schema and connection pool, engine, configuration (an overlay or a packs file), tokens and single
-sign-on, licence, and secrets: a tenant's configuration can only read variables named
+sign-on and secrets: a tenant's configuration can only read variables named
 `SENTINEL_SECRET_<TENANT>_...` or `SENTINEL_EDGE_<TENANT>_...`, never another tenant's or the service's own.
 Requests reach a tenant by host name or the `/t/<tenant>/` prefix; workers take turns between tenants by
 `weight`, so one busy tenant cannot starve the rest. See `sentinel/hosted.py` for the tenants file.
@@ -859,7 +852,7 @@ because duplicate detection needs one unique key across all months.
 ## Fleet
 
 Every site answers `GET /v1/fleet/status` for a service token named `fleet` (add it to the site's
-`tokens.yaml` as `{kind: service, principal: fleet}`) with its version, health, licence, last backup, last
+`tokens.yaml` as `{kind: service, principal: fleet}`) with its version, health, last backup, last
 usage export and published configuration. On KBGrid's own instance set `SENTINEL_FLEET` to a fleet file:
 
 ```yaml
@@ -869,7 +862,7 @@ target_version: "0.13.0"
 ```
 
 The **Fleet** page (or `sentinel fleet status --sites fleet.yaml`) shows every site and flags the ones that
-are unreachable, unhealthy, short of a licence, without a backup, or behind the target version, with the
+are unreachable, unhealthy, without a backup, or behind the target version, with the
 commands that upgrade them. Upgrades run on the site; the fleet never pushes code.
 
 ## Personal data (DPDP)

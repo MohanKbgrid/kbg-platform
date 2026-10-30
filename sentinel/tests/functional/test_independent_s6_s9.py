@@ -111,7 +111,7 @@ def engine(plant: Plant, patterns: list[Pattern], streak: int = 2, **kw: Any) ->
     ov = overlay(plant, patterns, **kw)
     learning = LearningPolicy(promote_streak={Route.HITL: streak, Route.LLM: streak})
     if "store" in ekw:
-        return Engine(ov, store=ekw.pop("store"), clock=FrozenClock(), licence=False, learning=learning,
+        return Engine(ov, store=ekw.pop("store"), clock=FrozenClock(), learning=learning,
                       guardrails=Guardrails(allow_irreversible_unattended=True), **ekw)
     return engine_for(ov, learning=learning, **ekw)
 

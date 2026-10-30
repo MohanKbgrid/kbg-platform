@@ -125,7 +125,7 @@ def test_console_changes_survive_a_pack_upgrade(tmp_path, monkeypatch, engine_fa
     from sentinel import Engine, SQLiteStore
     from tests.conftest import Backend, make_overlay
     db = str(tmp_path / "d4.db")
-    eng = Engine(make_overlay(Backend()), store=SQLiteStore(db), licence=False)
+    eng = Engine(make_overlay(Backend()), store=SQLiteStore(db))
     doc = yaml.safe_load(eng.config_text("registry"))
     for p in doc["patterns"]:
         if p["id"] == "site_down":
@@ -141,7 +141,7 @@ def test_console_changes_survive_a_pack_upgrade(tmp_path, monkeypatch, engine_fa
             upgraded.patterns[i] = p.model_copy(update={"severity": "critical"})
         if p.id == "job_timeout":
             upgraded.patterns[i] = p.model_copy(update={"description": "upstream wording"})
-    eng2 = Engine(upgraded, store=SQLiteStore(db), licence=False)
+    eng2 = Engine(upgraded, store=SQLiteStore(db))
     sd = eng2.registry.get("site_down")
     assert sd.sla_minutes == 45 and sd.severity == "critical"        # both changes kept
     assert eng2.registry.get("job_timeout").description == "upstream wording"
@@ -149,7 +149,7 @@ def test_console_changes_survive_a_pack_upgrade(tmp_path, monkeypatch, engine_fa
     assert "upstream wording" in eng2.config_text("registry")
     assert any(a["kind"] == "registry_rebased" for a in eng2.store.audit_log())
     gone = make_overlay(Backend(), patterns=[p for p in upgraded.patterns if p.id != "site_down"])
-    eng3 = Engine(gone, store=SQLiteStore(db), licence=False, raise_on_invalid=False)
+    eng3 = Engine(gone, store=SQLiteStore(db), raise_on_invalid=False)
     assert any(a["kind"] == "registry_rebase_failed" for a in eng3.store.audit_log())
     assert eng3.registry.get("site_down").sla_minutes == 45           # fell back to what was published
 

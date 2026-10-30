@@ -265,7 +265,7 @@ def clock() -> Clock:
 def make(tmp_path, world, clock):
     def _make(store=None, **kw):
         ov = build_overlay(tmp_path, world, people=kw.pop("people", None))
-        return Engine(ov, store=store or SQLiteStore(), clock=clock, licence=False, **kw)
+        return Engine(ov, store=store or SQLiteStore(), clock=clock, **kw)
     return _make
 
 

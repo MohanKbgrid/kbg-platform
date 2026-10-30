@@ -20,7 +20,7 @@ def test_site_status(engine_factory):
     eng.ingest(job_event(error="AUTH", ref="F1", key="f1"))
     s = site_status(eng)
     assert s["version"] and s["health"] == "ok" and s["open_reviews"] == 1 and s["last_backup"] is None
-    assert s["licence"] is None and s["live"] == s["patterns"]
+    assert "licence" not in s and s["live"] == s["patterns"]
 
 
 @pytest.fixture

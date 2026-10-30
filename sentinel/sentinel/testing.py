@@ -47,13 +47,12 @@ class FrozenClock:
 
 
 def engine_for(overlay: Any, **kw: Any) -> Any:
-    """An engine on an in-memory database with a frozen clock and no licence check, for tests."""
+    """An engine on an in-memory database with a frozen clock, for tests."""
     from .engine import Engine
     from .policy import Guardrails
     from .store import SQLiteStore
     kw.setdefault("clock", FrozenClock())
     kw.setdefault("guardrails", Guardrails(allow_irreversible_unattended=True))
-    kw.setdefault("licence", False)
     return Engine(overlay, store=SQLiteStore(":memory:"), **kw)
 
 

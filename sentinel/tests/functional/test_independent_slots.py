@@ -94,7 +94,7 @@ def make_engine(*extra: dict[str, Any], pack: dict[str, Any] | None = None, stor
     ov = Overlay(name="hospital", fingerprint_rules=doc.fingerprints, patterns=doc.patterns, roles=doc.roles,
                  case_defaults=doc.defaults, slots=doc.slots, slot_bindings=doc.slot_bindings,
                  directory=parse_directory(copy.deepcopy(people or PEOPLE)), **kw)
-    return Engine(ov, store=store or SQLiteStore(":memory:"), clock=clock or FrozenClock(), licence=False)
+    return Engine(ov, store=store or SQLiteStore(":memory:"), clock=clock or FrozenClock())
 
 
 def news2(ward: str = "W1", bed: str = "B1", key: str | None = None) -> Event:
@@ -274,7 +274,7 @@ class TestCompatibility:
         doc = parse_registry(reg)
         eng = Engine(Overlay(name="x", fingerprint_rules=doc.fingerprints, patterns=doc.patterns, roles=doc.roles,
                              directory=parse_directory(copy.deepcopy(PEOPLE))), store=SQLiteStore(":memory:"),
-                     licence=False)
+                     )
         text = eng.config_text("registry")
         assert "slot" not in text and "owner_role: matron" in text
 
@@ -506,7 +506,7 @@ class TestCodeOverlay:
                         slot_bindings={"accountable": "registrar"},
                         patterns=[Pattern(id="n", description="d", event_types=["vitals.news2_high"],
                                           owner_slot="accountable")])
-        eng = Engine(bound, store=SQLiteStore(":memory:"), licence=False)
+        eng = Engine(bound, store=SQLiteStore(":memory:"))
         r = eng.ingest(news2())
         assert owner(eng, r.incident_id) == "registrar"
 

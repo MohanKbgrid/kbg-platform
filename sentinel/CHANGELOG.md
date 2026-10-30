@@ -13,6 +13,9 @@ v0.24.0 it differs as follows; older entries below describe the private line and
 - **Not published:** internal working notes (`NEXT_SESSION`, `BUILDER_MISSES`, `PARADIGM_OVERHAUL`) and two
   console screenshots that showed a customer name. One test that read `BUILDER_MISSES.md` now checks only the
   public contract and changelog.
+- **Removed:** licence gating. There is no `licence.py`, no `SENTINEL_LICENCE`, no `sentinel licence` command and no
+  licence status in `/healthz`, the console or the fleet view. Nothing is degraded, capped or switched off by a
+  licence check. (`tests/test_no_licence_gating.py` keeps it that way.)
 - **Licensing:** Apache-2.0 for code, CC BY 4.0 for docs (see the repository root).
 
 Every release from v0.14.3 is classified under ADR-004 (`docs/adr/ADR-004-continuous-evolution-per-client-adoption.md`).

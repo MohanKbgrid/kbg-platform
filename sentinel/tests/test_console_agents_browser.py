@@ -47,7 +47,7 @@ def served(tmp_path):
     ov = Overlay(name="r06", fingerprint_rules=doc.fingerprints, patterns=doc.patterns, roles=doc.roles,
                  actions=_actions(), directory=parse_directory(data), slots=doc.slots,
                  slot_bindings=doc.slot_bindings, binding=load_binding(PACK / "binding.yaml"))
-    eng = Engine(ov, store=SQLiteStore(str(tmp_path / "c.db")), licence=False,
+    eng = Engine(ov, store=SQLiteStore(str(tmp_path / "c.db")),
                  clock=FrozenClock(datetime(2026, 10, 20, 9, tzinfo=UTC)),
                  guardrails=Guardrails(allow_irreversible_unattended=True))
     for art, v in (("A1", 120), ("A2", 9000), ("A3", 450)):

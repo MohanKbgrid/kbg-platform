@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 KB Grid
 """RS256 signatures (RSASSA-PKCS1-v1_5 with SHA-256) checked with the standard library only. Used for single
-sign-on ID tokens and for licences."""
+sign-on ID tokens."""
 from __future__ import annotations
 
 import base64
