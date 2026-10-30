@@ -101,6 +101,8 @@ sentinel --overlay my_overlay:build_overlay --db app.db reviews
 sentinel --overlay my_overlay:build_overlay --db app.db approve rev_xxx --by priya
 ```
 
+![Sentinel console](docs/img/console-exceptions.png)
+
 ## Analytics and cards, built in
 
 - **DuckDB analytics** (`sentinel/analytics.py`, `sentinel/kpi.py`): read-only, in-process reports and KPI monitors

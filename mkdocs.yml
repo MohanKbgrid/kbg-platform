@@ -34,16 +34,20 @@ nav:
       - Adoption:
           - Greenfield: canon/adoption/greenfield.md
           - Retrofit: canon/adoption/retrofit.md
+  - Gates (conformance kit):
+      - Overview: gates/README.md
   - Bases:
       - Core (Python): bases/core/README.md
       - UI kit (React): bases/ui-kit/README.md
   - Sentinel:
       - Overview: sentinel/README.md
+      - Five-minute demo: sentinel/docs/DEMO.md
       - Architecture: sentinel/docs/ARCHITECTURE.md
       - Extending: sentinel/docs/EXTENDING.md
       - Overlay contract: sentinel/docs/OVERLAY_CONTRACT.md
       - Operations: sentinel/docs/OPERATIONS.md
       - Porting to PostgreSQL: sentinel/docs/PORTING.md
+      - JSON Schemas (editor autocomplete): sentinel/docs/SCHEMAS.md
       - Decisions:
           - 001 Shared AI infrastructure: sentinel/docs/adr/ADR-001-shared-ai-infrastructure.md
           - 002 Event spine: sentinel/docs/adr/ADR-002-event-spine-for-gateway-tool-calls.md

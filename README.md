@@ -27,6 +27,8 @@ pip install -e ".[dev]"
 python -m sentinel.demo          # a retailer on synthetic data; open http://localhost:8080/console
 ```
 
+![Sentinel demo: a case arrives, a person approves, a reversal steps trust back](sentinel/docs/img/demo.gif)
+
 The demo needs no Docker, no database server and no API key. Steps, and a `docker compose` variant:
 [sentinel/docs/DEMO.md](sentinel/docs/DEMO.md). Once the first release is on PyPI (see [docs/RELEASING.md](docs/RELEASING.md))
 the install is `pip install "kbg-sentinel[api,postgres,analytics]"`.
