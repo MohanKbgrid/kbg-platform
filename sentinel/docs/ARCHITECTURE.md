@@ -109,7 +109,7 @@ All transitions go through one function; illegal ones raise. A property-based te
 
 - Framework: 141 tests; 139 run on SQLite and all 141 on PostgreSQL 16 (two multi-process tests need Postgres).
 - Chaos suite: random interleavings of every feature in async mode, invariants checked after each step; soaked at 3,000 scenarios.
-  Each overlay repo adds its own scenario suite (acme-sentinel: 11 ACME scenarios + CLI).
+  Each overlay repo adds its own scenario suite.
 - Property-based: random sequences of events, failures, decisions, clock jumps and sweeps, with and
   without shadow mode and strict guardrails; checked after every step that no incident is stranded,
   every terminal incident has exactly one disposition, shadow mode executes nothing, no irreversible

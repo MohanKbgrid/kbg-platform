@@ -26,7 +26,7 @@ back. Security contact: mohanp@kbgrid.com (see [SECURITY.md](../../SECURITY.md))
 | Console | SSO through a test OpenID Connect provider, plus local accounts for each role |
 | Keys | `SENTINEL_MASTER_KEY` set, several connector keys entered on the Keys page |
 | Edges | WhatsApp (Meta), Gupshup, Interakt, Slack, Teams and an A2UI edge pointed at mock servers |
-| Data | The demo overlay (`acme-sentinel` with `ACME_SYSTEMS` unset) with cases, reviews and audit history |
+| Data | The demo overlay (`python -m sentinel.demo`) with cases, reviews and audit history |
 | Accounts | One person per role: viewer, reviewer, approver with an amount limit, configurer (`__configure__`), access admin, a person scoped to one system; an expired and a revoked token |
 
 ## Surfaces and what to try

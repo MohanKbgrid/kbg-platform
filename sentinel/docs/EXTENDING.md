@@ -1,7 +1,7 @@
 # Extending Sentinel
 
 Three levels, from smallest to largest. None of them change this repo: overlays live in their own
-repos and depend on `kbg-sentinel` as a package. `acme-sentinel` is the reference overlay.
+repos and depend on `kbg-sentinel` as a package. `examples/quickstart.py` is the smallest reference overlay.
 
 ## A. Add an exception class to an existing role (YAML only)
 
@@ -47,7 +47,7 @@ repos and depend on `kbg-sentinel` as a package. `acme-sentinel` is the referenc
 4. Run it in shadow (`shadow: true` on the pattern, or the console's Go live page) and watch its agreement
    before letting it act; take it live from the Go live page once it is ready.
 
-## B. Add a role to an overlay (YAML + actions/tools) — e.g. acme-sentinel
+## B. Add a role to an overlay (YAML + actions/tools) — e.g. your own overlay
 
 A role is just: the patterns it owns (`owner_role`), the actions those patterns allow, and the read-only
 tools its agent needs.
@@ -62,7 +62,7 @@ tools its agent needs.
 3. Add **tools** (read-only) the agent needs to diagnose. Tools never write; the registry refuses
    non-read-only tools.
 4. Add receivers for new sources in `receivers.py`.
-5. Add scenario tests (see `acme-sentinel/tests/test_acme.py`): one per pattern, plus the role's promotion path.
+5. Add scenario tests (see the demo overlay's tests for the shape): one per pattern, plus the role's promotion path.
 
 Good next roles for ACME: Inventory Controller (stock drift patterns already exist), Returns
 Executive, Finance Ops (payment patterns exist, capped at HITL), Customer Care (WISMO, address changes).
@@ -71,7 +71,7 @@ Executive, Finance Ops (payment patterns exist, capped at HITL), Customer Care (
 
 ```
 northwind-sentinel/                    # its own repo
-  pyproject.toml                   # depends on kbg-sentinel @ git+https://github.com/MohanKbgrid/kbg-sentinel.git@v0.1.0
+  pyproject.toml                   # depends on kbg-sentinel>=0.24 (or a git pin until the first release)
   northwind_sentinel/
     __init__.py      build_overlay() -> Overlay
     registry.yaml    roles, fingerprints, patterns
@@ -107,7 +107,7 @@ sentinel --overlay ... config publish registry registry.yaml --by mohan --note "
 
 `publish` refuses a file with errors and, with RBAC, needs the `__configure__` right.
 
-Or copy `acme-sentinel`, delete its patterns, keep the structure. The engine, store, CLI,
+Or copy `examples/quickstart.py`, delete its patterns, keep the structure. The engine, store, CLI,
 guardrails and learning come for free. Run it with
 `sentinel --overlay northwind_sentinel:build_overlay --db northwind.db report`.
 

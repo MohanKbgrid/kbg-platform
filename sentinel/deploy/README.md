@@ -28,8 +28,9 @@ Nothing is stored on the Mac mini except a usage ledger (customer, model, tokens
 On any Linux machine with Docker:
 
 ```bash
-git clone https://github.com/MohanKbgrid/kbg-sentinel.git && cd kbg-sentinel/deploy/site
-git clone https://github.com/MohanKbgrid/acme-sentinel.git /opt/kbgrid/acme-sentinel   # the overlay
+git clone https://github.com/MohanKbgrid/kbg-platform.git && cd kbg-platform/sentinel/deploy/site
+# your overlay: a directory with your overlay package (see ../../examples/quickstart.py)
+mkdir -p /opt/overlay
 cp .env.example .env                             # passwords, OVERLAY_DIR, models
 cp config/tokens.yaml.example config/tokens.yaml
 mkdir -p backups && sudo chown 10001 backups     # nightly backups land here
@@ -61,7 +62,7 @@ answered from inside the container.
 ## Mac mini (shared small model)
 
 ```bash
-git clone https://github.com/MohanKbgrid/kbg-sentinel.git && cd kbg-sentinel/deploy/macmini
+git clone https://github.com/MohanKbgrid/kbg-platform.git && cd kbg-platform/sentinel/deploy/macmini
 bash install.sh                       # installs Ollama + gateway, pulls models; first run creates gateway.yaml
 # edit ~/sentinel-gateway/gateway.yaml: one tenant per customer site (token hashes, models, limits)
 bash install.sh                       # second run starts the gateway at boot (launchd)

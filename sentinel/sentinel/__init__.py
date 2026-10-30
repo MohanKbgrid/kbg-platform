@@ -5,7 +5,7 @@
 events -> fingerprint -> group/inhibit -> registry -> route (auto | llm | hitl)
        -> resolve -> disposition -> learn (promote / demote routes)
 
-Domain knowledge lives in an Overlay (a separate package, e.g. acme-sentinel); this package stays domain-free.
+Domain knowledge lives in an Overlay (a separate package of your own); this package stays domain-free.
 """
 from .actions import ActionContext, ActionRegistry, ParamError
 from .edges import Delivery, MemoryEdge, ReviewCard, WebhookEdge

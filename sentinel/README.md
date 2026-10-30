@@ -20,9 +20,8 @@ transaction ─► receiver ─► Event ─► fingerprint ─► group / inhib
 This repo is **domain-free**. Each project supplies an **overlay** in its own repo: a registry YAML
 (fingerprints, patterns, roles) plus Python actions, read-only tools and receivers.
 
-| Overlay | Repo | Exemplar role |
-|---|---|---|
-| Acme Home | `MohanKbgrid/acme-sentinel` | Order Fulfilment Executive |
+The smallest complete overlay is [examples/quickstart.py](examples/quickstart.py); a runnable retailer on synthetic data is
+the [demo](docs/DEMO.md).
 
 ## Open-source stack
 
@@ -42,10 +41,9 @@ hosted service, used as the frontier model, and it is optional.
 | Packaging | Docker Compose with nightly backups ([deploy/](deploy/README.md)) |
 
 CI fails if a runtime dependency is not under an approved open-source licence (`scripts/check_licences.py`).
+Sentinel is Apache-2.0 and nothing in it is gated or paid; the NOTICE file must travel with any redistribution.
 
 ## What it does
-
-![Sentinel console](docs/console-exceptions.png)
 
 **Recognise and route.** Events arrive from signed webhooks, polled APIs, database tables or overlay code,
 are fingerprinted, grouped and matched to an exception pattern, which decides: automatic playbook, a model,
@@ -74,31 +72,41 @@ Version by version: [CHANGELOG](CHANGELOG.md).
 
 ## Quick start
 
-```powershell
-git clone https://github.com/MohanKbgrid/kbg-sentinel.git; cd kbg-sentinel
+```bash
+git clone https://github.com/MohanKbgrid/kbg-platform && cd kbg-platform/sentinel
 pip install -e ".[dev]"
 python -m pytest                      # SQLite (Postgres-only tests skip)
-python examples\quickstart.py         # a complete overlay in one file
+python examples/quickstart.py         # a complete overlay in one file
+python -m sentinel.demo               # a retailer on synthetic data, console at http://localhost:8080/console
 ```
 
 Run the suite on PostgreSQL as well (adds the multi-process test):
 
-```powershell
-$env:SENTINEL_TEST_PG = "postgresql://user:pass@localhost:5432/sentinel_test"; python -m pytest
+```bash
+SENTINEL_TEST_PG="postgresql://user:pass@localhost:5432/sentinel_test" python -m pytest
 ```
 
-Use it from an overlay repo:
+Use it from an overlay repository (after the first release, from PyPI; until then from a commit):
 
 ```toml
-dependencies = ["kbg-sentinel @ git+https://github.com/MohanKbgrid/kbg-sentinel.git@<commit>"]
+dependencies = ["kbg-sentinel>=0.24"]
+# or, before the first release:
+# dependencies = ["kbg-sentinel @ git+https://github.com/MohanKbgrid/kbg-platform.git@<commit>#subdirectory=sentinel"]
 ```
 
 Work a review queue from the command line (installed as `sentinel`):
 
-```powershell
-sentinel --overlay acme_sentinel:build_overlay --db acme.db reviews
-sentinel --overlay acme_sentinel:build_overlay --db acme.db approve rev_xxx --by priya
+```bash
+sentinel --overlay my_overlay:build_overlay --db app.db reviews
+sentinel --overlay my_overlay:build_overlay --db app.db approve rev_xxx --by priya
 ```
+
+## Analytics and cards, built in
+
+- **DuckDB analytics** (`sentinel/analytics.py`, `sentinel/kpi.py`): read-only, in-process reports and KPI monitors
+  over PostgreSQL, SQLite, Parquet and archives. Anomaly detection and KPI breaches with no data warehouse to run.
+- **A2UI review cards** (`sentinel/edges.py`): reviews render as A2UI messages in an AI chat, and a person's tap comes
+  back as a review decision.
 
 ## What's guaranteed
 
