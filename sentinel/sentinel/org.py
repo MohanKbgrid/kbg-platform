@@ -85,12 +85,19 @@ def authorise(directory: Directory, actor: Person | Agent | str, action: str, ob
               scope: Mapping[str, Any] | None = None, amount: float | None = None, *,
               pattern: str = "*", amount_param: str = "amount", proposed_by: Iterable[str] = (),
               done_on_object: Mapping[str, Iterable[str]] | None = None,
-              sod: Iterable[SodRule] | None = None, at: datetime | None = None) -> Decision:
+              sod: Iterable[SodRule] | None = None, at: datetime | None = None, backend: Any = None) -> Decision:
     """May ``actor`` do ``action`` on ``obj`` in ``scope`` for ``amount``? See the module docstring for the rule.
+
+    ``backend`` is optional: an object with the same ``authorise`` method (see ``sentinel.cedar_authz``) that decides
+    the question instead of the built-in engine below. ``None`` (the default) is the built-in engine, unchanged.
 
     ``done_on_object`` maps actor id -> actions that actor already did on this object (for SoD).
     ``proposed_by`` is who proposed what is being approved (the actor may not be one of them).
     ``sod`` defaults to the directory's own ``sod`` rules."""
+    if backend is not None:
+        return backend.authorise(directory, actor, action, obj, scope, amount, pattern=pattern,
+                                 amount_param=amount_param, proposed_by=proposed_by,
+                                 done_on_object=done_on_object, sod=sod, at=at)
     if isinstance(actor, str):
         actor = Person(actor)
     facts = dict(scope or {})

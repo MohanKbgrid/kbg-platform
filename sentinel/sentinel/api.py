@@ -28,7 +28,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import ValidationError
 from .inputs import Body
 
-from .edges import WhatsAppEdge, answer_from_user_action, verify
+from .edges import WhatsAppEdge, answer_from_user_action, user_action_from_message, verify
 from .engine import AuthorizationError, Engine, EngineError, PayloadError
 from .models import Decision, Event, Route
 
@@ -112,7 +112,7 @@ class NoteIn(Body):
 
 def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: dict[str, str] | None = None,
                ingest_per_minute: int = 6000, title: str = "Sentinel", console: bool = True,
-               config_sync_s: float = 15.0, sso: Any = None) -> FastAPI:
+               config_sync_s: float = 15.0, sso: Any = None, a2a: bool = False) -> FastAPI:
     """`tokens` maps sha256(token) -> Principal."""
     import contextlib
 
@@ -435,7 +435,7 @@ def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: di
         body = await signed(edge, request, x_sentinel_timestamp, x_sentinel_signature)
         try:
             msg = json.loads(body)
-            act = msg.get("userAction") or {}
+            act = user_action_from_message(msg)     # v0.8 userAction or v0.9/v0.9.1 action, else ValueError
             if act.get("name") == "sentinel.raise":       # the button under a metric answer
                 from .kpi import KpiError, raise_case
                 ctx = act.get("context") or {}
@@ -568,6 +568,9 @@ def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: di
         h = token_hash(tok)
         return any(hmac.compare_digest(k, h) and p.kind == "service" and p.id == "scim" for k, p in tokens.items())
 
+    if a2a:                                   # A2A server surface (sentinel/a2a.py); off unless asked for
+        from .a2a import mount_a2a
+        mount_a2a(app, engine, service, capped_body, version=__version__)
     from .scim import mount as mount_scim
     mount_scim(app, engine, scim_token)
     if console:
