@@ -112,7 +112,7 @@ class NoteIn(Body):
 
 def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: dict[str, str] | None = None,
                ingest_per_minute: int = 6000, title: str = "Sentinel", console: bool = True,
-               config_sync_s: float = 15.0, sso: Any = None) -> FastAPI:
+               config_sync_s: float = 15.0, sso: Any = None, a2a: bool = False) -> FastAPI:
     """`tokens` maps sha256(token) -> Principal."""
     import contextlib
 
@@ -568,6 +568,9 @@ def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: di
         h = token_hash(tok)
         return any(hmac.compare_digest(k, h) and p.kind == "service" and p.id == "scim" for k, p in tokens.items())
 
+    if a2a:                                   # A2A server surface (sentinel/a2a.py); off unless asked for
+        from .a2a import mount_a2a
+        mount_a2a(app, engine, service, capped_body, version=__version__)
     from .scim import mount as mount_scim
     mount_scim(app, engine, scim_token)
     if console:

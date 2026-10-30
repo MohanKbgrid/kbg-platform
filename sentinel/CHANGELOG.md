@@ -45,6 +45,12 @@ set; the A2A endpoint and the Cedar backend are not mounted or used unless confi
   unsupported version is refused with a clear message (at configuration time for the edge, 422 for an inbound
   message); a v0.9 answer whose surface is not the review it names is refused. Same signature, answer-token and
   person checks as before. The metric answers of Ask AI (`kpi.a2ui`) stay v0.8.
+- **A2A 1.0 server surface** (`sentinel/a2a.py`, `docs/A2A.md`), beside the MCP client. `create_app(..., a2a=True)`
+  mounts `GET /.well-known/agent-card.json` and `POST /a2a` (JSON-RPC: `SendMessage`, `GetTask`, `ListTasks`;
+  `CancelTask` always refused). Other agent frameworks hand a case in (it becomes an event, the message id is the
+  idempotency key) and take its state and decision back (an artifact). Service bearer token, rate limit, size cap,
+  tenant and caller scoping, audit rows. An agent can never approve: no method reaches a decision, asserted in tests.
+  Off unless `a2a=True`; `api.py` gains one keyword and a three-line mount.
 
 ## v0.24.0 (2026-10-20)
 

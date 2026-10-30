@@ -382,6 +382,7 @@ Configuration can be published from the console, so it is kept away from the ser
 - **Secrets:** configuration may only read variables named `SENTINEL_SECRET_...` or `SENTINEL_EDGE_...`,
   `SENTINEL_GATEWAY_KEY`, or those listed in `SENTINEL_CONFIG_SECRETS`. The database password, the Claude key
   and everything else in the process are out of its reach.
+- **A2A server (off by default):** `create_app(..., a2a=True)` lets other agent frameworks hand cases in and read decisions back over A2A 1.0; see `docs/A2A.md`. It adds no outbound network use.
 - **Network:** polled sources, SQL sources, MCP servers, edges and model servers named in configuration may
   not reach loopback, private or reserved addresses unless allowed in `SENTINEL_EGRESS_ALLOW` (CIDRs or host
   names, e.g. `10.20.0.0/16,wms.acme.local` for a warehouse system or the office Mac mini on the office
