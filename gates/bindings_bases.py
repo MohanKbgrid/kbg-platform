@@ -68,6 +68,39 @@ class BaseAuthoritySubject:
         return list(self.log)
 
 
+class BaseKindSubject:
+    """RBAC-5 and RBAC-9 over the base's `Decision` and `Authority`: a denial carries a reason AND a known kind."""
+
+    def __init__(self) -> None:
+        k, _ = _base()
+        self.k = k
+
+        class _Auth(k.Authority):
+            def _evaluate(self, actor, action, obj=None):
+                if actor == "granted":
+                    return k.Decision.allow()
+                return k.Decision.deny("requires the Plant Manager role", who_can="Plant Manager")
+
+        self.auth = _Auth()
+
+    def availability(self, who, action):
+        return self.auth.check(who, action).as_availability()
+
+    def call(self, who, action):
+        try:
+            self.auth.require(who, action)
+            return 200, {}
+        except self.k.PermissionDenied as e:
+            return 403, e.decision.as_blocked_by()
+
+    def denial_for(self, kind):
+        d = self.k.Decision.deny(f"blocked: {kind.lower()}", kind=kind)
+        return {"kind": d.kind, "reason": d.reason}
+
+    def build_denial(self, kind, reason):
+        return self.k.Decision.deny(reason, kind=kind)       # raises ValueError for an unknown kind or a blank reason
+
+
 # ------------------------------------------------------------------------------ Integration (Outbox)
 
 class BaseOutboxSubject:
@@ -218,9 +251,9 @@ def _kind_gap(gate: str) -> Callable[[], Any]:
 
 BINDINGS: Dict[str, Callable[[], Any]] = {
     "RBAC-1": BaseAuthoritySubject,
-    "RBAC-5": _kind_gap("RBAC-5"),
+    "RBAC-5": BaseKindSubject,
     "RBAC-8": BaseAuthoritySubject,
-    "RBAC-9": _kind_gap("RBAC-9"),
+    "RBAC-9": BaseKindSubject,
     "CFG-3": BaseVersionedSecretSubject,
     "DOC-6": BaseCaptureSubject,
     "INT-4": BaseOutboxSubject,

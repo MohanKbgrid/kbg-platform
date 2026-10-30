@@ -62,7 +62,7 @@ class Decision:
             if self.kind is not None:
                 raise ValueError("an allow does not carry a denial kind")
             return
-        if not self.reason:
+        if not (self.reason or "").strip():          # None, "" and whitespace-only are all "no reason"
             raise ValueError(
                 "a denial must carry a reason - a silently disabled control is the thing this "
                 "class exists to prevent")

@@ -13,17 +13,16 @@ def test_the_base_passes_every_gate_it_can_be_a_subject_of():
         assert r.status == PASS, (gid, r.detail)
 
 
-def test_the_base_does_not_yet_conform_on_denial_kind():
+def test_the_base_conforms_on_denial_kind():
     for gid in ("RBAC-5", "RBAC-9"):
         r = run_gate(BY_ID[gid], bb.BINDINGS)
-        assert r.status == GAP and "kind" in r.detail[0]
+        assert r.status == PASS, r.detail
 
 
-def test_the_gap_turns_into_a_fail_when_the_base_grows_a_kind(monkeypatch):
-    """The `appeared` mechanism: once the fact exists, a binding that still says Gap is a FAIL."""
-    k, _ = bb._base()
-    monkeypatch.setattr(k.Decision, "__dataclass_fields__", {**k.Decision.__dataclass_fields__, "kind": object()})
-    r = run_gate(BY_ID["RBAC-9"], bb.BINDINGS)
+def test_the_gap_turns_into_a_fail_when_the_base_grows_a_kind():
+    """The `appeared` mechanism: once the fact exists, a binding that still says Gap is a FAIL. The base has a kind
+    now, so a binding written back when it had none must be red until it is rewritten."""
+    r = run_gate(BY_ID["RBAC-9"], {"RBAC-9": bb._kind_gap("RBAC-9")})
     assert r.status == FAIL and "APPEARED" in r.detail[0]
 
 

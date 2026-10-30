@@ -126,6 +126,8 @@ check_raises("a lower-case spelling of a kind is refused (closed list, exact mat
 check_raises("a denial with an empty reason is refused, via the bare constructor too",
              ValueError, lambda: Decision(False, ""))
 check_raises("a denial with a None reason is refused", ValueError, lambda: Decision(False))
+check_raises("a denial whose reason is only spaces is refused (found by gate RBAC-9 on the real base)", ValueError,
+             lambda: Decision.deny("   "))
 check_raises("an ALLOW cannot carry a denial kind", ValueError,
              lambda: Decision(True, None, None, {}, "STATE_GATE"))
 check("an allow has no kind", Decision.allow().kind, None)
