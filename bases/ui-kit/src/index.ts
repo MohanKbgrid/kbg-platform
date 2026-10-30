@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /**
  * NOTE ON THE `.js` IMPORT EXTENSIONS BELOW — do not "tidy" them away.
  * TypeScript resolves './states/States.js' to States.tsx at compile time, and emits the specifier

@@ -60,3 +60,13 @@ The canon covers **patterns**. Implementations are product- and tenant-specific.
 | Accounting | control accounts + dimensional sub-ledgers · validate before mutate · corrections are new documents | chart of accounts, the dimension list, every posting adapter, GL codes |
 | Integration | outbox keyed by a source id · the environment gate · an unmapped code refuses · mappings supersede | connectors, which dimensions exist, interface contracts, code values |
 | UI/UX | the eight states · the table contract · the token *roles* · denied-visible-with-reason | markup, palette values, density, language, layout |
+
+## Licence
+
+- **Code** (`bases/`, `tools/`, `tests/`): [Apache-2.0](LICENSE).
+- **Canon and docs** (`canon/`, `docs/`): [CC BY 4.0](LICENSE-docs). Credit "KB Grid".
+- Keep the [NOTICE](NOTICE) file when you redistribute. If you build on this, a "Built on KBG Platform"
+  line in your README is appreciated; it is a courtesy, not a condition.
+- Contributions are accepted under the same licences with a DCO sign-off (`git commit -s`); there is no CLA.
+
+`python tools/licence_check.py` verifies the licence files and the SPDX header on every source file.

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """Gate for kbg-platform-core.
 
 Every check here is a NEGATIVE one: it proves the primitive *refuses* the thing its doctrine

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """D1 — deny by default, and ONE function drives both the disabled button and the 403.
 
 The bug this prevents is specific and common: a UI computes whether to show a button, an API

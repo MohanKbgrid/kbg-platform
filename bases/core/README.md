@@ -79,3 +79,8 @@ python verify_consumable.py    # builds, installs, imports from the INSTALL not 
 
 The second one is not ceremony. The sibling UI package passed its typecheck and its unit gate
 while being **impossible for any consumer to import** — nothing inside a package can catch that.
+
+## Licence
+
+Apache-2.0 (see `LICENSE` at the repository root). Keep the `NOTICE` file when you copy this into a product.
+Copied files keep their SPDX header.

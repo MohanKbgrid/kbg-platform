@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /** tsc emits JS and .d.ts but not CSS, so the token sheet is copied explicitly.
  *  It is exposed as "./tokens.css" in package.json exports, so a consumer never
  *  reaches into dist/ by hand. */

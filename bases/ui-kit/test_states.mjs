@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /**
  * Gate for @kbg/ui-kit's one testable invariant.
  *

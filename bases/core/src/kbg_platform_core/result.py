@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """D4 — missing data is a FINDING, never a licence to invent.
 
 The doctrine is easy to agree with and easy to violate, because the ordinary way to signal absence

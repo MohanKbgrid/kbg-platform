@@ -204,3 +204,7 @@ means "we follow the canon", and that claim should be true.
 It is derived from one programme's experience. Where a spec conflicts with a real business
 requirement, **the business wins** — and that conflict is a defect in the spec, to be fixed here so
 the next project inherits the correction. Raise it; do not work around it privately.
+
+## Licence
+
+This text is licensed under [CC BY 4.0](../LICENSE-docs). Please credit "KB Grid" when you reuse or adapt it.

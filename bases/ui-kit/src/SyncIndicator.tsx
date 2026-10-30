@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /**
  * The sync indicator — Experience surface §7, and a direct application of D7.
  *
