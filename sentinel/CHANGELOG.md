@@ -51,6 +51,14 @@ set; the A2A endpoint and the Cedar backend are not mounted or used unless confi
   idempotency key) and take its state and decision back (an artifact). Service bearer token, rate limit, size cap,
   tenant and caller scoping, audit rows. An agent can never approve: no method reaches a decision, asserted in tests.
   Off unless `a2a=True`; `api.py` gains one keyword and a three-line mount.
+- **Optional Cedar backend for `authorise()`** (`sentinel/cedar_authz.py`, `docs/CEDAR.md`, `examples/cedar/`).
+  `authorise(..., backend=CedarBackend.from_path(...))` evaluates the same question with Cedar policies; the
+  built-in engine remains the default (`backend=None`) and is unchanged. The Directory still supplies who holds which
+  role; Cedar decides what a role may do, limits and separation of duties. Four non-removable base policies keep the
+  ADR-003 invariants (an agent never approves, never acts on a proposal; nobody approves their own; no role, no
+  authority). Fails closed on any error or missing policy. New extra `cedar = ["cedarpy"]`, never a hard import.
+  Parity with the built-in engine is tested over a 20,000-cell table, for the example policies and for
+  `generate_policies(directory)` output.
 
 ## v0.24.0 (2026-10-20)
 
