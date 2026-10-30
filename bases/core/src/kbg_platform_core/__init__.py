@@ -7,6 +7,7 @@ doctrines hard to violate by accident. Everything else is yours to build against
 """
 from .authority import BLOCK_KINDS, NO_RULE, Authority, Decision, PermissionDenied
 from .idem import capture_id, is_client_minted
+from .job_run import JobRunStore, Run, arecord, record
 from .outbox import (AsyncOutbox, AsyncOutboxStore, Mode, Outbox, OutboxRow, OutboxStore,
                      RetryPolicy, State, Transition, decide)
 from .rbac_shadow import MemoryRecorder, RbacShadow, RoutePermission, coverage_report, route_table
@@ -20,6 +21,7 @@ __all__ = [
     "Mode", "Outbox", "AsyncOutbox", "OutboxRow", "OutboxStore", "AsyncOutboxStore", "State",
     "RetryPolicy", "Transition", "decide",
     "MemoryRecorder", "RbacShadow", "RoutePermission", "coverage_report", "route_table",
+    "JobRunStore", "Run", "arecord", "record",
     "VersionedRecord", "VersionedStore", "VersionedWriter", "WriteResult",
     "capture_id", "is_client_minted",
 ]

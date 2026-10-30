@@ -11,6 +11,8 @@ Run: python test_core.py
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import io
 import sys
 import uuid
 
@@ -20,6 +22,7 @@ from kbg_platform_core.outbox import RetryPolicy, decide
 from kbg_platform_core import (AsyncOutbox, BLOCK_KINDS, NO_RULE, Authority, Decision, Gap, GapError, Mode, Outbox, OutboxRow,
                                PermissionDenied, Resolved, State, VersionedRecord,
                                VersionedWriter, capture_id, gaps)
+from kbg_platform_core.job_run import arecord, record, write
 from kbg_platform_core.rbac_shadow import (MemoryRecorder, RbacShadow, coverage_report,
                                            permission_for, route_table)
 from kbg_platform_core.testkit import (ControlNotProven, assert_advanced,
@@ -468,6 +471,163 @@ async def shadow_async():
 
 
 asyncio.run(shadow_async())
+
+
+# ── job_run: one record per run, on success AND failure, and the failure is re-raised ──────
+print("\n[job_run] every run leaves exactly one record; a failure is recorded then re-raised")
+
+
+class RunStore:
+    def __init__(self, fail_open=False, fail_close=False):
+        self.rows: list[dict] = []
+        self.opened_as: list[str] = []
+        self.fail_open, self.fail_close = fail_open, fail_close
+
+    def open(self, run):
+        if self.fail_open:
+            raise ConnectionError("db down at start")
+        self.opened_as.append(run.snapshot()["status"])
+        self.rows.append(run.snapshot())
+        return len(self.rows) - 1
+
+    def close(self, row_id, run):
+        if self.fail_close:
+            raise ConnectionError("db down at end")
+        if row_id is None:
+            self.rows.append(run.snapshot())
+        else:
+            self.rows[row_id] = run.snapshot()
+
+
+st = RunStore()
+with record("sync", st, scope="tenant-1", expect_every_hours=6) as run:
+    run.rows(41).summarize("synced   41\nrows").detail(src="a")
+check("success: exactly ONE row", len(st.rows), 1)
+check("...visible as 'running' while it was in flight", st.opened_as, ["running"])
+r0 = st.rows[0]
+check("...closed ok with its counts and one-line summary",
+      (r0["status"], r0["rows_affected"], r0["summary"]), ("ok", 41, "synced 41 rows"))
+check("...finished_at set, scope kept, cadence registered as data",
+      (r0["finished_at"] is not None, r0["scope"], r0["detail"]["expect_every_hours"]),
+      (True, "tenant-1", 6))
+
+st = RunStore()
+try:
+    with record("sync", st) as run:
+        raise ValueError("boom")
+    check("a failing job re-raises", "no raise", "ValueError")
+except ValueError:
+    check("a failing job RE-RAISES (the job still exits non-zero)", "ValueError", "ValueError")
+check("...and still leaves exactly one row", len(st.rows), 1)
+check("...recorded failed, with the exception in detail",
+      (st.rows[0]["status"], st.rows[0]["detail"]["exception"]["type"]), ("failed", "ValueError"))
+check("...and a summary that says FAILED", st.rows[0]["summary"].startswith("FAILED: ValueError"), True)
+
+st = RunStore()
+try:
+    with record("sync", st):
+        raise KeyboardInterrupt()
+except KeyboardInterrupt:
+    pass
+check("an interrupt is recorded as failed too (BaseException) and re-raised",
+      st.rows[0]["status"], "failed")
+
+st = RunStore()
+with record("sync", st) as run:
+    run.partial("stopped at cutoff")
+check("partial is a distinct terminal status with its reason",
+      (st.rows[0]["status"], st.rows[0]["detail"]["partial_reason"]), ("partial", "stopped at cutoff"))
+st = RunStore()
+with record("sync", st) as run:
+    run.failed("3 of 5 units failed")
+check("a failure the job detects without raising is recorded", st.rows[0]["status"], "failed")
+st = RunStore()
+try:
+    with record("sync", st) as run:
+        run.partial()
+        raise RuntimeError("x")
+except RuntimeError:
+    pass
+check("an exception after partial() is failed, not partial", st.rows[0]["status"], "failed")
+check("expect_every_hours=None registers no cadence",
+      "expect_every_hours" in (lambda s: (record("a", s, expect_every_hours=None).__enter__().snapshot()))(RunStore())["detail"], False)
+
+err = io.StringIO()
+st = RunStore(fail_open=True)
+with contextlib.redirect_stderr(err):
+    with record("sync", st) as run:
+        run.rows(3)
+check("open fails: the job carries on, and ONE row is still written at close",
+      (len(st.rows), st.rows[0]["status"], st.rows[0]["rows_affected"]), (1, "ok", 3))
+check("...loudly, on stderr, and counted", ("JOB_RUN:" in err.getvalue(), run.record_errors), (True, 1))
+
+err = io.StringIO()
+st = RunStore(fail_close=True)
+with contextlib.redirect_stderr(err):
+    with record("sync", st) as run:
+        pass
+check("close fails: the job is NOT killed, the stranded 'running' row is the evidence",
+      (st.rows[0]["status"], run.record_errors, "JOB_RUN:" in err.getvalue()), ("running", 1, True))
+err = io.StringIO()
+st = RunStore(fail_close=True)
+try:
+    with contextlib.redirect_stderr(err):
+        with record("sync", st):
+            raise ValueError("job failed AND recorder down")
+except ValueError:
+    check("a job failure still surfaces when the recorder is down too", True, True)
+check_raises("a run with no job name is refused", ValueError, lambda: record("", RunStore()).__enter__())
+check_raises("write() with an invalid status is refused", ValueError,
+             lambda: write("j", RunStore(), status="running"))
+st = RunStore()
+write("manual", st, status="partial", summary="did half", rows=5, why="cutoff")
+check("write() records a known outcome in one call",
+      (st.rows[0]["status"], st.rows[0]["rows_affected"], st.rows[0]["detail"]["why"]),
+      ("partial", 5, "cutoff"))
+
+
+class ARunStore:
+    def __init__(self):
+        self.rows: list[dict] = []
+
+    async def open(self, run):
+        self.rows.append(run.snapshot())
+        return len(self.rows) - 1
+
+    async def close(self, row_id, run):
+        self.rows[row_id] = run.snapshot()
+
+
+async def job_run_async():
+    s = ARunStore()
+    async with arecord("a", s) as run:
+        run.rows(2)
+    check("async: one row, closed ok", (len(s.rows), s.rows[0]["status"], s.rows[0]["rows_affected"]),
+          (1, "ok", 2))
+    s2 = ARunStore()
+    try:
+        async with arecord("a", s2):
+            raise ValueError("async boom")
+        check("async: a failing job re-raises", "no raise", "ValueError")
+    except ValueError:
+        check("async: a failure is recorded then RE-RAISED", (s2.rows[0]["status"], len(s2.rows)),
+              ("failed", 1))
+    e = io.StringIO()
+    s3 = RunStore()
+    with contextlib.redirect_stderr(e):
+        async with arecord("a", s3):
+            pass
+    check("a sync store given to arecord still works (awaited only if awaitable)",
+          (len(s3.rows), s3.rows[0]["status"]), (1, "ok"))
+
+
+asyncio.run(job_run_async())
+e = io.StringIO()
+with contextlib.redirect_stderr(e):
+    with record("a", ARunStore()) as run:
+        pass
+check("an ASYNC store given to the sync record is flagged loudly, never silently 'ok'",
+      (run.record_errors >= 1, "async store" in e.getvalue()), (True, True))
 
 
 # ── D2: supersede, never update ────────────────────────────────────────────────────────────
