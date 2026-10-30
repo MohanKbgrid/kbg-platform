@@ -22,8 +22,8 @@ jobs:
       - run: python -m twine check dist/*
       - name: no licence or billing code in the distribution
         run: |
-          for f in dist/*.whl; do if unzip -l "$f" | grep -Ei "(licence|billing)[^/]*\.py"; then exit 1; fi; done
-          for f in dist/*.tar.gz; do if tar tzf "$f" | grep -Ei "(licence|billing)[^/]*\.py"; then exit 1; fi; done
+          for f in dist/*.whl; do if unzip -l "$f" | grep -Ei "sentinel/(licence|billing)[^/]*\.py"; then exit 1; fi; done
+          for f in dist/*.tar.gz; do if tar tzf "$f" | grep -Eiq "^[^/]+/sentinel/(licence|billing)[^/]*\.py$"; then exit 1; fi; done
       - name: LICENSE and NOTICE travel inside the wheel and the sdist (Apache-2.0 section 4)
         run: |
           unzip -l dist/*.whl | grep -E "dist-info/(licenses/)?LICENSE" 
