@@ -16,7 +16,7 @@ import uuid
 sys.path.insert(0, "src")
 
 from kbg_platform_core.outbox import RetryPolicy, decide
-from kbg_platform_core import (Authority, Decision, Gap, GapError, Mode, Outbox, OutboxRow,
+from kbg_platform_core import (BLOCK_KINDS, NO_RULE, Authority, Decision, Gap, GapError, Mode, Outbox, OutboxRow,
                                PermissionDenied, Resolved, State, VersionedRecord,
                                VersionedWriter, capture_id, gaps)
 from kbg_platform_core.testkit import (ControlNotProven, assert_advanced,
@@ -92,11 +92,77 @@ check_raises("a denial with no reason is refused at construction",
              ValueError, lambda: Decision.deny(""))
 check("availability and enforcement come from one decision",
       auth.check("ann", "order.correct").as_availability(),
-      {"enabled": False, "reason": "corrections are a supervisor act", "whoCan": "Supervisor"})
+      {"enabled": False, "reason": "corrections are a supervisor act", "whoCan": "Supervisor",
+       "kind": "AUTHORITY", "code": None})
 check_raises("require() raises with the SAME reason the UI showed",
              PermissionDenied, lambda: auth.require("ann", "order.correct"))
 check("allows are logged too, not only denials",
       [e["allowed"] for e in log].count(True), 1)
+
+
+# ── D1 (gate 9): a denial names its KIND, and only a known one ────────────────────────────
+print("\n[D1/kind] a denial carries one of seven kinds; anything else is refused")
+check("the closed list has exactly the seven kinds",
+      BLOCK_KINDS, ("AUTHORITY", "STATE_GATE", "CONFIG_GATE", "PRECONDITION", "READINESS",
+                    "APPROVAL_PENDING", "COMPLETED"))
+check("a plain denial defaults to AUTHORITY", Decision.deny("no").kind, "AUTHORITY")
+for k in BLOCK_KINDS:
+    dk = Decision.deny("because " + k.lower(), kind=k, code="C_" + k)
+    check(f"kind {k}: carried on the decision, with reason and code",
+          (dk.allowed, dk.kind, dk.code, bool(dk.reason)), (False, k, "C_" + k, True))
+    check(f"kind {k}: the screen shape names it too", dk.as_availability()["kind"], k)
+check_raises("an UNKNOWN kind is refused when the decision is built", ValueError,
+             lambda: Decision.deny("x", kind="WHATEVER"))
+check_raises("...even through the bare constructor", ValueError,
+             lambda: Decision(False, "x", kind="whatever"))
+check_raises("a lower-case spelling of a kind is refused (closed list, exact match)", ValueError,
+             lambda: Decision.deny("x", kind="authority"))
+check_raises("a denial with an empty reason is refused, via the bare constructor too",
+             ValueError, lambda: Decision(False, ""))
+check_raises("a denial with a None reason is refused", ValueError, lambda: Decision(False))
+check_raises("an ALLOW cannot carry a denial kind", ValueError,
+             lambda: Decision(True, None, None, {}, "STATE_GATE"))
+check("an allow has no kind", Decision.allow().kind, None)
+check("who_can stays optional", Decision.deny("x").who_can, None)
+check("an allow's blocked_by is None", Decision.allow().as_blocked_by(), None)
+check("a denial's blocked_by is {kind, code, reason}",
+      Decision.deny("held", kind="STATE_GATE", code="POSTED").as_blocked_by(),
+      {"kind": "STATE_GATE", "code": "POSTED", "reason": "held"})
+
+klog: list[dict] = []
+
+
+def authorise(actor, action, obj=None):
+    if action == "doc.post":
+        return Decision.deny("already posted", kind="STATE_GATE", code="POSTED")
+    if action == "doc.read":
+        return Decision.allow()
+    if action == "doc.bad":
+        return "yes"            # not a Decision: must not be treated as an allow
+    return None
+
+
+inj = Authority(authorise, log=klog.append)
+blocked = inj.check("ann", "doc.post")
+check("an INJECTED authorise drives the decision, kind and code intact",
+      (blocked.allowed, blocked.kind, blocked.code), (False, "STATE_GATE", "POSTED"))
+fallback = inj.check("ann", "doc.unlisted")
+check("no rule matched: denied with code NO_RULE and kind AUTHORITY",
+      (fallback.allowed, fallback.code, fallback.kind), (False, NO_RULE, "AUTHORITY"))
+check("the button and the 403 agree on kind and reason",
+      (inj.check("ann", "doc.post").as_availability()["kind"],
+       inj.check("ann", "doc.post").as_availability()["reason"]), ("STATE_GATE", "already posted"))
+try:
+    inj.require("ann", "doc.post")
+except PermissionDenied as e:
+    check("require() raises carrying the same kind the UI showed", e.decision.kind, "STATE_GATE")
+check("the decision log records kind and code on every entry",
+      [(e["kind"], e["code"]) for e in klog][:1], [("STATE_GATE", "POSTED")])
+check_raises("a non-Decision answer from authorise is refused, never read as an allow",
+             TypeError, lambda: inj.check("ann", "doc.bad"))
+check_raises("a non-callable authorise is refused", TypeError, lambda: Authority("yes"))
+check_raises("an Authority with neither authorise nor _evaluate fails loudly",
+             NotImplementedError, lambda: Authority().check("ann", "x"))
 
 
 # ── D3: idempotency by client-minted id ────────────────────────────────────────────────────
