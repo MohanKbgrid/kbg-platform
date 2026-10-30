@@ -11,7 +11,7 @@ Checks, in order:
      `SPDX-License-Identifier: Apache-2.0` within its first 5 lines.
   3. No package manifest declares UNLICENSED.
 
-website/ is skipped: it moves to its own repository (brief W4). node_modules and dist are skipped.
+node_modules and dist are skipped.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 SOURCE_SUFFIXES = {".py", ".ts", ".tsx", ".mjs", ".css"}
-SKIP_PREFIXES = ("website/",)
+SKIP_PREFIXES = ()
 SKIP_PARTS = {"node_modules", "dist", ".git"}
 SPDX = "SPDX-License-Identifier: Apache-2.0"
 REQUIRED = {

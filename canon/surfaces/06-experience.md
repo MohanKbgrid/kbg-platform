@@ -29,7 +29,7 @@ A screen is not done until all eight are designed. Most software ships two.
 | **Loading** | Skeleton in the shape of the content, not a spinner over a blank page |
 | **Empty — never had data** | Explain what would put data here, and offer the action that does |
 | **Empty — filtered to nothing** | Say which filter caused it, and offer to clear that one |
-| **Denied** | **Visible, disabled, with the reason and who can do it.** Never hidden |
+| **Denied** | **Visible, disabled, with the reason, the kind and what to do next.** Never hidden. The kind (Surface 3: authority, state gate, config gate, precondition, readiness, approval pending, completed) decides the wording: "ask the Plant Manager" is right for authority, wrong for a state gate, and a completed action is not an error at all |
 | **Partial failure** | Show what loaded and name what did not. Never fail the whole page for one widget |
 | **Stale / offline** | State when the data is from, and that it may have moved |
 | **Too much** | Above a threshold, insist on a filter rather than rendering 40,000 rows |
@@ -49,8 +49,9 @@ A screen is not done until all eight are designed. Most software ships two.
 9. **Conflicts are surfaced to a human with both versions**, never auto-merged on financial data.
 
 ### Access and language
-10. **Denied is visible with its reason** — stated again here because it is the single most-violated
-    rule in this list, and it belongs to Experience as much as to RBAC.
+10. **Denied is visible with its reason and its kind** — stated again here because it is the single
+    most-violated rule in this list, and it belongs to Experience as much as to RBAC. The screen takes
+    the kind from the decision; it never works it out for itself.
 11. **Language is a user setting**, and the floor layer may need a different language from the
     office layer in the same deployment.
 
@@ -76,7 +77,9 @@ something that did not exist before (D6).
 1. **Rank before limit.** Seed more rows than a page; assert the top-ranked row is on page 1 even
    when its natural sort order would place it last.
 2. **All eight states render.** One test per state, asserting the *specific* copy — especially that
-   denied shows a reason and names who can act.
+   denied shows a reason and names who can act. Render one denial of each kind and assert each shows
+   its own copy (a state gate must not tell the user to ask someone for access; a completed action
+   must not look like an error).
 3. **Export carries provenance.** Export a filtered view; assert the provenance sheet records the
    filters that were actually applied, not the defaults.
 4. **A stored artifact is re-served, not re-rendered** (see Documents §3).

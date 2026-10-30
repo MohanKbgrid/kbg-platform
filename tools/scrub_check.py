@@ -12,8 +12,7 @@ them. In CI it comes from a repository secret (KBG_SCRUB_PATTERNS); locally from
 With no patterns the check fails (exit 2) unless --allow-missing is given, so a CI job that lost its secret
 cannot pass by scanning nothing.
 
-Scans every git-tracked text file under the public layers, and the file names themselves. website/ is skipped:
-it moves to its own repository.
+Scans every git-tracked text file under the public layers, and the file names themselves.
 """
 from __future__ import annotations
 
