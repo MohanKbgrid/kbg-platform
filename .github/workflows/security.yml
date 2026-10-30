@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f sentinel/deploy/Dockerfile -t kbg-sentinel:scan sentinel
       - name: image vulnerabilities (fail on fixable high and critical)
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: kbg-sentinel:scan
           severity: HIGH,CRITICAL
