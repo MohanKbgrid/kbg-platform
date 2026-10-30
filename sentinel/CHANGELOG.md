@@ -36,13 +36,19 @@ commit SHA. `tests/test_changelog.py` refuses an entry without both lines. Entri
 
 **Class:** Compatible (every part is additive and ships switched off or unused: a new endpoint, new files, an
 optional extra. No existing behaviour, contract or test changes).
-**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`. (The version heading
+**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`; point your editor at `schemas/` (`docs/SCHEMAS.md`). (The version heading
 is assigned when this is released.)
 
 - **CloudEvents 1.0 receiver (`sentinel.cloudevents`, `POST /v1/cloudevents`).** Structured and binary HTTP modes
   map `id` to the idempotency key and `type`, `source`, `time`, `subject`, `data` into the existing event
   envelope, with the bearer auth, size caps, rate limit and duplicate rules of `/v1/events`. Malformed events
   get a 4xx that names the problem. The old format and endpoint are untouched.
+
+- **JSON Schemas for the YAML (`schemas/`, `scripts/gen_json_schemas.py`, `docs/SCHEMAS.md`).** Draft 2020-12
+  schemas for registry, people, models, connectors, metrics, domain templates and connector templates, generated
+  from the pydantic models the loaders use; the `$id` base is a marked placeholder set in one constant. A test
+  validates every shipped template and example against them and refuses planted defects. New example
+  `deploy/site/config/metrics.yaml.example`; `jsonschema` joins the `dev` extra.
 
 ## v0.24.0 (2026-10-20)
 

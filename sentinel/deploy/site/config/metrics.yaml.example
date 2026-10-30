@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../schemas/metrics.schema.json
+# KPIs, the datasets they are computed on, and monitors that raise a case when one breaches (docs/OPERATIONS.md,
+# "Metrics: KPIs, monitors and Ask AI"). Names here are demo names; use your own.
+datasets:
+  orders:
+    kind: overlay                  # rows supplied by the overlay's code
+    name: orders
+    refresh_minutes: 15
+metrics:
+  otif:
+    title: On time in full
+    dataset: orders
+    time: promised_at
+    value: avg(case when on_time and in_full then 1.0 else 0 end)
+    format: percent
+    dimensions: [location, channel]
+    target: {gte: 0.97}
+    owner: fulfilment_lead
+monitors:
+  otif_by_location:
+    metric: otif
+    by: [location]
+    window_days: 1
+    every_minutes: 60
+    min_rows: 20

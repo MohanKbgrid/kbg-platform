@@ -90,6 +90,10 @@ unattended:
   - {resolver: auto, action: push_stock_to_channel}                  # no amount: no limit
 ```
 
+**Editor support.** Every configuration kind has a JSON Schema in `schemas/`; add
+`# yaml-language-server: $schema=<path>/schemas/<kind>.schema.json` as the first line of a file for autocomplete
+and early errors (see `docs/SCHEMAS.md`). `sentinel validate` and the console check remain the full check.
+
 ## Environments and promotion (dev, staging, production)
 
 Name each site's environment with `SENTINEL_ENV=dev|staging|prod`; it appears in `/healthz` and as a badge

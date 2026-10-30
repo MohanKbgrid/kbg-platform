@@ -1,0 +1,926 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kbg-platform.example/schemas/connectors.schema.json",
+  "title": "Sentinel connectors configuration (sources, lookups, actions, auth, mcp, edges)",
+  "description": "The `connectors` configuration: connectors.yaml, and the `connectors:` block of a connector template.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Source"
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/MCPServer"
+      }
+    },
+    "edges": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "description": "name -> edge settings (see docs/OPERATIONS.md, Edges)."
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/HttpAction"
+      }
+    },
+    "lookups": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/HttpLookup"
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/AuthSpec"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AuthSpec": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "method": {
+          "default": "POST",
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "default": null,
+          "title": "Body"
+        },
+        "form": {
+          "default": false,
+          "title": "Form",
+          "type": "boolean"
+        },
+        "token": {
+          "default": "body.token",
+          "title": "Token",
+          "type": "string"
+        },
+        "token_regex": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token Regex"
+        },
+        "ttl_s": {
+          "default": 3000,
+          "minimum": 60,
+          "title": "Ttl S",
+          "type": "integer"
+        },
+        "ttl_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ttl From"
+        },
+        "timeout_s": {
+          "default": 20.0,
+          "exclusiveMinimum": 0,
+          "maximum": 60,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "AuthSpec",
+      "type": "object"
+    },
+    "Cursor": {
+      "description": "Where reading resumes. With only `field`, use \">=\" in the query (rows that share the last value are\nread again and recognised as duplicates by their keys). With `tie` (a unique field such as the row id)\nthe position is (field, tie): query ``WHERE (updated_at, id) > (%(cursor)s, %(cursor_tie)s)`` and no row\nsharing a timestamp across a page boundary is skipped.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "initial": {
+          "default": null,
+          "title": "Initial"
+        },
+        "tie": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tie"
+        },
+        "tie_initial": {
+          "default": null,
+          "title": "Tie Initial"
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "title": "Cursor",
+      "type": "object"
+    },
+    "Emit": {
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "each": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Each"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Payload"
+        },
+        "tenant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant"
+        },
+        "correlation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Correlation"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Emit",
+      "type": "object"
+    },
+    "HttpAction": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "request": {
+          "$ref": "#/$defs/HttpRequest"
+        },
+        "compensate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ok_status": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Ok Status",
+          "type": "array"
+        },
+        "ok_when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ok When"
+        },
+        "safe": {
+          "default": false,
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "max_attempts": {
+          "default": 3,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "timeout_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout S"
+        },
+        "idempotency_header": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "Idempotency-Key",
+          "title": "Idempotency Header"
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "title": "HttpAction",
+      "type": "object"
+    },
+    "HttpLookup": {
+      "description": "A read-only tool the model and playbooks may call: an HTTP GET (or a read-only query sent as POST, e.g.\nTally's XML export or a GraphQL query, declared with ``reads_only: true``).\n\n    lookups:\n      shiprocket.track:\n        description: Where a shipment is, by AWB\n        params: {awb: str}\n        request: {method: GET, url: \"https://apiv2.shiprocket.in/v1/external/courier/track/awb/{{params.awb}}\",\n                  headers: {Authorization: \"Bearer {{auth.shiprocket}}\"}}\n        result: body.tracking_data          # only this part goes back (keeps the model's view small)",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "request": {
+          "$ref": "#/$defs/HttpRequest"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "reads_only": {
+          "default": false,
+          "title": "Reads Only",
+          "type": "boolean"
+        },
+        "max_chars": {
+          "default": 6000,
+          "maximum": 50000,
+          "minimum": 200,
+          "title": "Max Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "title": "HttpLookup",
+      "type": "object"
+    },
+    "HttpRequest": {
+      "properties": {
+        "method": {
+          "default": "POST",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "default": null,
+          "title": "Body"
+        },
+        "timeout_s": {
+          "default": 20.0,
+          "exclusiveMinimum": 0,
+          "maximum": 120,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "HttpRequest",
+      "type": "object"
+    },
+    "MCPServer": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "transport": {
+          "enum": [
+            "http",
+            "stdio"
+          ],
+          "title": "Transport",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Env",
+          "type": "object"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transport",
+        "tools"
+      ],
+      "title": "MCPServer",
+      "type": "object"
+    },
+    "Present": {
+      "description": "What an expect source reads to see what has happened: an API (url) or a read-only table query.",
+      "properties": {
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "method": {
+          "default": "GET",
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Items"
+        },
+        "dsn_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsn Env"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "title": "Present",
+      "type": "object"
+    },
+    "Signature": {
+      "description": "hmac: the header carries an HMAC of the body (Shopify). token: the header carries a shared\ntoken as it is (Shiprocket's x-api-key, a Delhivery or Zoho custom header).",
+      "properties": {
+        "header": {
+          "title": "Header",
+          "type": "string"
+        },
+        "secret_env": {
+          "title": "Secret Env",
+          "type": "string"
+        },
+        "mode": {
+          "default": "hmac",
+          "enum": [
+            "hmac",
+            "token"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "encoding": {
+          "default": "hex",
+          "enum": [
+            "hex",
+            "base64"
+          ],
+          "title": "Encoding",
+          "type": "string"
+        },
+        "algorithm": {
+          "default": "sha256",
+          "enum": [
+            "sha256",
+            "sha1"
+          ],
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "prefix": {
+          "default": "",
+          "title": "Prefix",
+          "type": "string"
+        }
+      },
+      "required": [
+        "header",
+        "secret_env"
+      ],
+      "title": "Signature",
+      "type": "object"
+    },
+    "Source": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "webhook",
+            "poll",
+            "sql",
+            "expect"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "emit": {
+          "items": {
+            "$ref": "#/$defs/Emit"
+          },
+          "title": "Emit",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "tenant": {
+          "default": "default",
+          "title": "Tenant",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Signature"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "every_s": {
+          "default": 300,
+          "title": "Every S",
+          "type": "integer"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "method": {
+          "default": "GET",
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Items"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timeout_s": {
+          "default": 30.0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "format": {
+          "default": "json",
+          "enum": [
+            "json",
+            "xml"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "dsn_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsn Env"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "tz": {
+          "default": "Asia/Kolkata",
+          "title": "Tz",
+          "type": "string"
+        },
+        "days": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "mon",
+                  "tue",
+                  "wed",
+                  "thu",
+                  "fri",
+                  "sat",
+                  "sun"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Days"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "present": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Present"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "match_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match On"
+        }
+      },
+      "required": [
+        "kind",
+        "emit"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  }
+}

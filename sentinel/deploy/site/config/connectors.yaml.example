@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../schemas/connectors.schema.json
 # Data sources and lookup tools. Normally edited in the console (Data sources & tools); this file shows the
 # format. Secrets are referenced as {{env.NAME}} and live in .env, never here.
 sources:
