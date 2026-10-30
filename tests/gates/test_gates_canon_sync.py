@@ -31,6 +31,15 @@ def test_every_canon_gate_test_has_a_gate(prefix, stem):
     assert not extra, f"gates with no canon gate test: {extra}"
 
 
+def test_distribution_rules_each_have_a_gate():
+    text = (CANON / "07-integration.md").read_text(encoding="utf-8")
+    m = re.search(r"^## Distributing master data offline.*?(?=^## |\Z)", text, re.S | re.M)
+    assert m, "the Distributing master data offline section is missing"
+    nums = [int(n) for n in re.findall(r"^(\d+)\. ", m.group(0), re.M)]
+    assert nums == list(range(1, 9))
+    assert {f"DST-{n}" for n in nums} <= IDS
+
+
 def test_each_gate_cites_a_canon_file_that_exists():
     for g in registry():
         path = g.canon.split(",")[0]

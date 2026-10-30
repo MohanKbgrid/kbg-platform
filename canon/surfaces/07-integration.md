@@ -77,6 +77,82 @@ Dead letters follow the same discipline as the minimum, with one addition: **a c
 or approval fact can be replayed but never discarded**, and the list of committed types is
 insert-only for every role. An empty list fails closed: nothing is then discardable.
 
+## Distributing master data offline
+
+Some products keep copies of master data (prices, items, limits, who may do what) on nodes that must
+keep working while disconnected: a branch server, a till, a handheld. The system of record (**the
+hub**) changes the data; every node (**a receiver**) holds a copy and catches up by version. This
+section is the contract for that distribution and for the inbound side that feeds it. It adds to the
+minimum outbox above; it does not replace it. Each rule is a runnable gate, `DST-1` to `DST-8`, in
+`gates/integration_distribution.py`.
+
+The eight rules:
+
+1. **A committed fact is replayable, never discardable.** A money, stock or approval fact that has
+   committed and then lands in a dead-letter queue can be replayed. It can never be discarded, by any
+   role, with or without an approval. The list of protected types is data in an **insert-only** store:
+   no role can update, delete or truncate it, and a type, once protected, stays protected (a mistake is
+   a reviewed schema change, never a data change). A protected name matches by shape, at the start of
+   any dot-separated segment, so a variant spelling of a protected type is also undiscardable. **An
+   empty list fails closed**: nothing is judged discardable. Ordinary messages are still discardable,
+   but only with a recorded approval; the guard is not a blanket refusal. (Gate `DST-1`.)
+2. **A protected name has at least two segments of at least three characters.** A one-letter name would
+   protect every type that begins with it, and the list is insert-only. Variant spellings are blocked
+   where contracts are registered: a contract whose name varies a protected name cannot become active
+   unless it is explicitly linked to that name, and a link is accepted only if the contract's name
+   equals or varies the name it links to. (Gate `DST-2`.)
+3. **The idempotency key is (tenant, source system, change id).** Not the change id alone: two source
+   systems number their changes independently, and two tenants may both use the same number. A replay
+   with the same key has exactly one effect and is answered "already applied", which is success, not an
+   error (D3). A correction to an earlier change is a new change with its own id, never a re-send of
+   the first. (Gate `DST-3`.)
+4. **Crosswalk rows supersede; they never overwrite** (D2). The mapping from a source system's id to
+   the global id is append-only: a remap closes the active row and adds a new one, exactly one row is
+   active at a time, the old one stays as evidence, each row records who made it, and a direct update or
+   delete is refused. (Gate `DST-4`.)
+5. **Distribution is numbered, gap-safe and snapshot-safe.**
+   - **One issuer per dataset numbers its versions**, per (tenant, dataset, receiver). A receiver keeps
+     one cursor per dataset, so numbering is per receiver; versions only rise and never repeat under
+     concurrent writers. A second node that numbers the same dataset is refused.
+   - **A gap, or a cursor older than retention, gets a full snapshot applied in one step.** A receiver
+     that holds version n and is offered n+k (k greater than 1) does not apply it; it asks for a
+     snapshot. Retention is longer than the longest planned disconnection. A snapshot replaces the whole
+     dataset (rows absent from it are deleted) and is applied whole or not at all.
+   - **A snapshot is never older than the highest version already applied**, urgent versions included,
+     or it would undo them.
+   - **A snapshot built from an external source is refused when its row count differs from the previous
+     version by more than a stated amount, unless the dataset owner confirms.** A partial or stale
+     source would otherwise delete good rows. Serving the issuer's own current state to a receiver in a
+     gap is not subject to this guard, so a dataset that legitimately shrinks still reaches the
+     receivers. (Gate `DST-5`.)
+6. **Urgent changes are self-contained set-state operations and may apply out of order.** A kill, a
+   block or a price correction cannot wait for a gap to be filled, so it states the final state of the
+   row rather than a difference from a previous one, and is applied when it arrives; the receiver's
+   cursor stays where it was. The ordering guard is **issue order, not content version**: each row keeps
+   the version of the last change applied to it, and a change reaches a row only if its issue version is
+   higher. A later-issued explicit activation therefore clears a block even when it names an older
+   content version, and a replayed older activation cannot revive a blocked row. (Gate `DST-6`.)
+7. **Several sources of one fact: the stricter holds.** When more than one source speaks about one
+   item, it is blocked if **any** source blocks it, in both directions: no source can lift another's
+   block. An override role is empty if any blocking source names none, otherwise the highest ranked of
+   those named. The reason names the first blocking source in a fixed order. The issuer resolves this
+   **before** distributing, so receivers see one row, and it **keeps every source**; a new version is
+   issued when a block starts or ends. (Gate `DST-7`.)
+8. **Integration controls: every interface run records counts and balances.** A run records what it
+   read, what it accepted and what it rejected, by count and by value, and checks for duplicates, for
+   a missing sequence number and for balance (source equals accepted plus rejected). **A run that
+   cannot balance, because no control total is available or the totals disagree, is a finding, never a
+   pass.** Every run leaves a record, failed ones included. (Gate `DST-8`.)
+
+**Doctrines that bind here:** D1 (an empty protected list refuses), D2 (crosswalks and the protected
+list are append-only), D3 (idempotency by source key), D4 (a run that cannot balance says so), D7 (a
+control that reports a false pass is worse than none).
+
+**Not decided here:** the transport, the cadence of the signal that tells a receiver there is something
+to pull, the retention length (it is a function of the longest planned disconnection and is a
+per-product value), and the amount that triggers the external-snapshot guard (per dataset, set by its
+owner).
+
 ## Schema shape
 
 ```
@@ -148,3 +224,4 @@ and a **retraction path**: a mapping the job no longer stands behind is closed o
 | _Conforms._ The environment gate is proven three independent ways; unmapped codes refuse and name the gap; mappings are versioned with provenance and a retraction path; the outbox is idempotent on a source key; the state machine is the canon base, vendored. 83/83. | | |
 | The dispatcher's state machine is **vendored from `bases/core`**, not re-derived — and the base learned the held-does-not-consume-an-attempt rule *from this project*. | | |
 | **Three outbox designs exist in the programme, deliberately not merged into a fourth.** (1) `bases/core/outbox.py`: the minimum, one consumer, outbound. (2) A multi-consumer **relay**: per-consumer deliveries, six outcomes, leases with a fence, per-aggregate ordering (section above). (3) An **inbound hub** for a retail estate: a message envelope with an idempotency table keyed on tenant, source system and change id; statuses accepted / processed / rejected / dead / quarantined; a dead-letter queue (open, replaying, replayed, discarded) where a discard needs a recorded approval and a committed-fact type can never be discarded. | They solve different problems: one outbound consumer; fan-out with ordering; inbound receipt with controls. Each was built under real pressure before the canon said what the shared part is. | Three vocabularies for "stuck": held / INFRA_HOLD / quarantined, and failed / dead_letter / DEAD. A reader must know which design they are in. This spec fixes the shared rules (gates 4, 8, 9, the environment gate, the committed-fact rule); it does not claim the three share code. Do not write a fourth. |
+| **"Distributing master data offline" is proven on reference subjects only.** The eight rules come from one retail estate's design (decisions on committed fact types and on hub-to-till distribution), written here in neutral terms. `gates/integration_distribution.py` proves each gate red-then-green; no product has bound them yet. | The rules were settled in design before any receiver code existed there. | Until a product binds `DST-1` to `DST-8`, they assert the contract, not an implementation. The retention length and the external-snapshot threshold are deliberately left to the product. |
