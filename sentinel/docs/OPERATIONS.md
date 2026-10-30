@@ -779,7 +779,11 @@ edges:
 - **A2UI.** The signed body is `{"card": {...}, "a2ui": [surfaceUpdate, beginRendering]}` (A2UI v0.8,
   standard catalogue): the case, the proposal and buttons (Approve, Close with a code). A button press
   comes back as `POST /v1/edges/ask_ai/a2ui` with `{"person_id": ..., "userAction": {...}}`, signed like
-  answers.
+  answers. Set `a2ui_version: v0.9.1` (or `v0.9`) on the edge to render A2UI v0.9 instead (`createSurface` and
+  `updateComponents`, basic catalogue; the body then also carries `a2ui_version`); the default stays `v0.8`. The
+  answer comes back in either format whatever the edge renders: v0.8 `{"person_id", "userAction": {...}}` or v0.9
+  `{"person_id", "version": "v0.9.1", "action": {name, surfaceId, sourceComponentId, timestamp, context}}`. A
+  version Sentinel does not speak is a 422 naming the versions it does.
 - **WhatsApp.** Cards go to the person's `contact.whatsapp` (or `phone`) as an interactive message with
   reply buttons. Outside WhatsApp's 24-hour service window only approved templates may be sent: create a
   template whose body has two parameters (title, reason) and two quick-reply buttons, and name it under

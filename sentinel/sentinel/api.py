@@ -28,7 +28,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import ValidationError
 from .inputs import Body
 
-from .edges import WhatsAppEdge, answer_from_user_action, verify
+from .edges import WhatsAppEdge, answer_from_user_action, user_action_from_message, verify
 from .engine import AuthorizationError, Engine, EngineError, PayloadError
 from .models import Decision, Event, Route
 
@@ -435,7 +435,7 @@ def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: di
         body = await signed(edge, request, x_sentinel_timestamp, x_sentinel_signature)
         try:
             msg = json.loads(body)
-            act = msg.get("userAction") or {}
+            act = user_action_from_message(msg)     # v0.8 userAction or v0.9/v0.9.1 action, else ValueError
             if act.get("name") == "sentinel.raise":       # the button under a metric answer
                 from .kpi import KpiError, raise_case
                 ctx = act.get("context") or {}

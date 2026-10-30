@@ -32,6 +32,20 @@ Each release entry carries two lines that a client's support record (`docs/templ
 A release is a commit on `main` with the version in `pyproject.toml`; it is never a git tag. Consumers pin by
 commit SHA. `tests/test_changelog.py` refuses an entry without both lines. Entries before v0.14.3 are unclassified.
 
+## Unreleased (W8 open standards, part 2)
+
+**Class:** Compatible (every part ships switched off: the A2UI edge keeps rendering v0.8 unless `a2ui_version` is
+set; the A2A endpoint and the Cedar backend are not mounted or used unless configured).
+**Adopt:** nothing is required. To render A2UI v0.9, set `a2ui_version: v0.9.1` on the edge.
+
+- **A2UI v0.9 / v0.9.1 on the A2UI edge.** `a2ui_version` on an `a2ui` edge (`v0.8` default, `v0.9`, `v0.9.1`)
+  renders the review card as `createSurface` + `updateComponents` (basic catalogue), from the A2UI project's
+  `specification/v0_9_1`. Inbound answers are accepted in either format whatever the edge renders: v0.8
+  `userAction`, or v0.9 `{version, action: {name, surfaceId, sourceComponentId, timestamp, context}}`. An
+  unsupported version is refused with a clear message (at configuration time for the edge, 422 for an inbound
+  message); a v0.9 answer whose surface is not the review it names is refused. Same signature, answer-token and
+  person checks as before. The metric answers of Ask AI (`kpi.a2ui`) stay v0.8.
+
 ## v0.24.0 (2026-10-20)
 
 **Class:** Compatible (every part is opt-in: a policy key, `data_trust` in defaults, `spot_check_rate`, `claims`.
