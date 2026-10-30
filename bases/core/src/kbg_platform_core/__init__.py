@@ -9,6 +9,7 @@ from .authority import BLOCK_KINDS, NO_RULE, Authority, Decision, PermissionDeni
 from .idem import capture_id, is_client_minted
 from .outbox import (AsyncOutbox, AsyncOutboxStore, Mode, Outbox, OutboxRow, OutboxStore,
                      RetryPolicy, State, Transition, decide)
+from .rbac_shadow import MemoryRecorder, RbacShadow, RoutePermission, coverage_report, route_table
 from .result import Gap, GapError, Outcome, Resolved, all_resolved, gaps
 from .versioned import VersionedRecord, VersionedStore, VersionedWriter, WriteResult
 
@@ -18,6 +19,7 @@ __all__ = [
     "Gap", "GapError", "Outcome", "Resolved", "all_resolved", "gaps",
     "Mode", "Outbox", "AsyncOutbox", "OutboxRow", "OutboxStore", "AsyncOutboxStore", "State",
     "RetryPolicy", "Transition", "decide",
+    "MemoryRecorder", "RbacShadow", "RoutePermission", "coverage_report", "route_table",
     "VersionedRecord", "VersionedStore", "VersionedWriter", "WriteResult",
     "capture_id", "is_client_minted",
 ]

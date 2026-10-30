@@ -41,6 +41,11 @@ Do not attempt to convert every endpoint at once.
    delete the old check.
 5. Only when all groups have flipped, turn on **deny by default** for unlisted actions.
 
+Reference code for steps 1 to 4 is [`bases/core/.../rbac_shadow.py`](../../bases/core/src/kbg_platform_core/rbac_shadow.py):
+a route-to-permission table, a shadow evaluation that never denies and records `allow`, `would_deny`,
+`unmapped` or `error`, and `coverage_report()`, which says per route group when it is safe to enforce.
+It takes an injected recorder and authority function, so it fits any framework and any store.
+
 The same shape works for pricing, posting, and anything else where an existing implementation must
 be replaced without a gap: **compute both, log the divergence, flip when it is zero.**
 

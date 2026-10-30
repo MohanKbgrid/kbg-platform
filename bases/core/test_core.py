@@ -20,6 +20,8 @@ from kbg_platform_core.outbox import RetryPolicy, decide
 from kbg_platform_core import (AsyncOutbox, BLOCK_KINDS, NO_RULE, Authority, Decision, Gap, GapError, Mode, Outbox, OutboxRow,
                                PermissionDenied, Resolved, State, VersionedRecord,
                                VersionedWriter, capture_id, gaps)
+from kbg_platform_core.rbac_shadow import (MemoryRecorder, RbacShadow, coverage_report,
+                                           permission_for, route_table)
 from kbg_platform_core.testkit import (ControlNotProven, assert_advanced,
                                        assert_control_controls, require_fixture_db)
 
@@ -371,6 +373,101 @@ check("...and the trail is the decide() trail",
 check("sync settle on a HELD row leaves it held with 0 attempts",
       (lambda b: (b.settle(b.enqueue(topic="t", source_key="Z", payload={}), b.held_result())
                   .state.value))(Outbox(Mode.DEV, MemStore())), "held")
+
+
+# ── RBAC shadow mode: observes, records, NEVER denies ────────────────────────────────────
+print("\n[shadow] the strangler measures coverage before anything is enforced")
+TABLE = route_table([
+    ("GET", "/api/orders", "read", "order"),
+    ("POST|PATCH", "/api/orders", "write", "order"),
+    ("POST", "/api/orders/refund", "refund", "order"),
+    ("GET", "/api/reports", "read", "report"),
+])
+check("longest prefix wins regardless of row order",
+      permission_for(TABLE, "POST", "/api/orders/refund/7").permission, "order.refund")
+check("a prefix matches on a path-segment boundary only",
+      permission_for(TABLE, "GET", "/api/ordersfoo"), None)
+check("a method outside the row's methods is unmapped, not 'no permission needed'",
+      permission_for(TABLE, "DELETE", "/api/orders"), None)
+
+held = {"ann": {"order.read", "order.write"}}
+asked: list[tuple] = []
+
+
+def evaluate(actor, action, object_type):
+    asked.append((actor, action, object_type))
+    if actor == "boom":
+        raise RuntimeError("authority down")
+    if actor == "mute":
+        return None
+    ok = f"{object_type}.{action}" in held.get(actor, set())
+    return Decision.allow() if ok else Decision.deny("not granted to this role")
+
+
+rec = MemoryRecorder()
+shadow = RbacShadow(TABLE, evaluate, rec)
+check("held permission -> allow", shadow.observe("ann", "GET", "/api/orders/1")["outcome"], "allow")
+w = shadow.observe("ann", "POST", "/api/orders/refund")
+check("not held -> would_deny, with the reason", (w["outcome"], w["reason"], w["kind"]),
+      ("would_deny", "not granted to this role", "AUTHORITY"))
+u = shadow.observe("ann", "GET", "/api/unknown")
+check("no mapping -> unmapped, and the authority was NOT asked",
+      (u["outcome"], ("ann", "read", "unknown") in asked), ("unmapped", False))
+check("a raising authority is recorded as error, not propagated",
+      shadow.observe("boom", "GET", "/api/orders")["outcome"], "error")
+check("an authority answering None is an error, never an allow",
+      shadow.observe("mute", "GET", "/api/orders")["outcome"], "error")
+check("an observation says it is shadow and not enforced",
+      (w["shadow"], w["enforced"]), (True, False))
+check("every observation was recorded, would_deny and unmapped included", len(rec.observations), 5)
+
+bad = RbacShadow(TABLE, evaluate, lambda o: 1 / 0)
+check("a failing recorder never breaks the request", bad.observe("ann", "GET", "/api/orders")["outcome"], "allow")
+check("...but the loss is COUNTED", bad.recorder_errors, 1)
+check("a bool authority works too", RbacShadow(TABLE, lambda a, b, c: True).observe("x", "GET", "/api/reports")["outcome"], "allow")
+check("a non-bool, non-Decision answer is an error",
+      RbacShadow(TABLE, lambda a, b, c: "yes").observe("x", "GET", "/api/reports")["outcome"], "error")
+
+rep = coverage_report(rec.observations, TABLE)
+check("report counts by outcome", rep["byOutcome"],
+      {"allow": 1, "would_deny": 1, "unmapped": 1, "error": 2})
+check("unmapped routes become a worklist", rep["unmappedRoutes"], {"GET /api/unknown": 1})
+check("NOT ready to enforce while unmapped / would_deny / errors remain", rep["readyToEnforce"], False)
+grp = {g["permission"]: g for g in rep["groups"]}
+check("a group with a would_deny is not ready", grp["order.refund"]["ready"], False)
+check("a mapped group nobody exercised is not ready (no traffic is not evidence)",
+      grp["report.read"]["ready"], False)
+clean_rec = MemoryRecorder()
+ok_shadow = RbacShadow(TABLE, lambda a, b, c: True, clean_rec)
+for m, pth in (("GET", "/api/orders/1"), ("POST", "/api/orders"), ("POST", "/api/orders/refund"),
+               ("GET", "/api/reports")):
+    ok_shadow.observe("ann", m, pth)
+clean = coverage_report(clean_rec.observations, TABLE)
+check("all mapped, all allowed, all exercised -> every group ready and enforceable",
+      (clean["readyToEnforce"], all(g["ready"] for g in clean["groups"])), (True, True))
+check("an empty run is never 'ready'", coverage_report([], TABLE)["readyToEnforce"], False)
+check("a record that is not one of ours counts as an error, not data",
+      coverage_report([{"outcome": "bogus"}], TABLE)["errors"], 1)
+
+
+async def shadow_async():
+    arec: list = []
+
+    async def aeval(actor, action, object_type):
+        return Decision.allow()
+
+    async def arecorder(obs):
+        arec.append(obs)
+
+    sh = RbacShadow(TABLE, aeval, arecorder)
+    o = await sh.aobserve("ann", "GET", "/api/orders")
+    check("async evaluate and async recorder", (o["outcome"], len(arec)), ("allow", 1))
+    sync_on_async = RbacShadow(TABLE, aeval, arec.append).observe("ann", "GET", "/api/orders")
+    check("the sync path refuses an async authority as an error, never an allow",
+          sync_on_async["outcome"], "error")
+
+
+asyncio.run(shadow_async())
 
 
 # ── D2: supersede, never update ────────────────────────────────────────────────────────────
