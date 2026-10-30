@@ -1,0 +1,43 @@
+name: security
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "17 2 * * 1" }]       # weekly, for advisories published since the last change
+permissions: { contents: read }
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install "./sentinel[postgres,api,analytics,anthropic]" pip-audit packaging
+      - name: known vulnerabilities in runtime dependencies
+        run: pip-audit --progress-spinner off --skip-editable
+      - name: software bill of materials
+        run: python sentinel/scripts/sbom.py --out sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom-python, path: sbom.cdx.json }
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f sentinel/deploy/Dockerfile -t kbg-sentinel:scan sentinel
+      - name: image vulnerabilities (fail on fixable high and critical)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: kbg-sentinel:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: sentinel/.trivyignore
