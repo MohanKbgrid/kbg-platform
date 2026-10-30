@@ -84,5 +84,5 @@ comm_routing_policy       company_id · purpose · channel · provider_key · is
 
 | What | Why | Cost |
 |---|---|---|
-| `comm_routing_policy` exists but holds **0 rows** — purpose→channel routing is modelled, not populated | No notification traffic in production yet. | Purpose-based routing is unproven. The first real send will exercise a code path nothing has run. |
-| _Otherwise conforms_ — secrets encrypted at rest, write-only through the API, versioned with supersede + audit, company-over-global resolution, thresholds as data with a control-controls gate. | | |
+| The communication routing table may be empty — purpose→channel routing modelled, not populated | No notification traffic yet. | Purpose-based routing is unproven. The first real send will exercise a code path nothing has run. |
+| _Conforms on_ — secrets encrypted at rest, write-only through the API, versioned with supersede + audit, company-over-global resolution, thresholds as data with a control-controls gate. | | |

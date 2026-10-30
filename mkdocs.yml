@@ -1,0 +1,67 @@
+site_name: KBG Platform
+site_description: A canon of platform specs with runnable gates, bases you copy in, and Sentinel, an agentic framework where autonomy is earned.
+repo_url: https://github.com/MohanKbgrid/kbg-platform
+docs_dir: .site-src
+site_dir: site
+theme:
+  name: material
+  features: [navigation.sections, navigation.top, content.code.copy, search.suggest]
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: { icon: material/weather-night, name: Dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: { icon: material/weather-sunny, name: Light mode }
+markdown_extensions: [tables, admonition, toc: { permalink: true }]
+validation:
+  links: { not_found: info, anchors: info, absolute_links: info, unrecognized_links: info }
+nav:
+  - Home: README.md
+  - Canon:
+      - Overview: canon/README.md
+      - Surfaces:
+          - 1 Tenancy: canon/surfaces/01-tenancy.md
+          - 2 Config: canon/surfaces/02-config.md
+          - 3 RBAC: canon/surfaces/03-rbac.md
+          - 4 Workflow: canon/surfaces/04-workflow.md
+          - 5 Documents: canon/surfaces/05-documents.md
+          - 6 Experience: canon/surfaces/06-experience.md
+          - 7 Integration: canon/surfaces/07-integration.md
+          - 8 Runtime AI: canon/surfaces/08-runtime-ai.md
+          - 9 Accounting: canon/surfaces/09-accounting.md
+          - Seam, CRM: canon/surfaces/10-crm-seam.md
+      - Adoption:
+          - Greenfield: canon/adoption/greenfield.md
+          - Retrofit: canon/adoption/retrofit.md
+  - Gates (conformance kit):
+      - Overview: gates/README.md
+  - Bases:
+      - Core (Python): bases/core/README.md
+      - UI kit (React): bases/ui-kit/README.md
+  - Sentinel:
+      - Overview: sentinel/README.md
+      - Five-minute demo: sentinel/docs/DEMO.md
+      - Architecture: sentinel/docs/ARCHITECTURE.md
+      - Extending: sentinel/docs/EXTENDING.md
+      - Overlay contract: sentinel/docs/OVERLAY_CONTRACT.md
+      - Operations: sentinel/docs/OPERATIONS.md
+      - Porting to PostgreSQL: sentinel/docs/PORTING.md
+      - JSON Schemas (editor autocomplete): sentinel/docs/SCHEMAS.md
+      - Decisions:
+          - 001 Shared AI infrastructure: sentinel/docs/adr/ADR-001-shared-ai-infrastructure.md
+          - 002 Event spine: sentinel/docs/adr/ADR-002-event-spine-for-gateway-tool-calls.md
+          - 003 Layered agents: sentinel/docs/adr/ADR-003-layered-agent-architecture.md
+          - 004 Per-client adoption: sentinel/docs/adr/ADR-004-continuous-evolution-per-client-adoption.md
+          - 005 Capability catalogue: sentinel/docs/adr/ADR-005-capability-catalogue-and-domain-bindings.md
+          - 006 Case families: sentinel/docs/adr/ADR-006-case-families-interrupt-budgets-fatigue-governor.md
+          - 007 Offline enforcement: sentinel/docs/adr/ADR-007-v024-offline-enforcement-and-layer-safety.md
+      - Security: sentinel/docs/security/README.md
+      - Changelog: sentinel/CHANGELOG.md
+  - Project:
+      - Contributing: CONTRIBUTING.md
+      - Governance: GOVERNANCE.md
+      - Roadmap: ROADMAP.md
+      - Releasing: docs/RELEASING.md
+      - Security policy: SECURITY.md
+      - Code of conduct: CODE_OF_CONDUCT.md

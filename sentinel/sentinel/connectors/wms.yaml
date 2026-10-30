@@ -1,0 +1,93 @@
+# Connector template: a warehouse management system with a REST API. The paths below are a common shape;
+# change them to the WMS's own (only the base URL and token are secrets).
+name: wms
+title: Warehouse system (REST)
+description: >
+  Polls the WMS's location health into location.outage and its stock-versus-channel reconciliation into
+  inventory.mismatch; lookups read stock for a SKU at every location and an order's pick status; actions
+  raise pick priority (undone by resetting it), move an order to another location (undone by moving it back)
+  and ask for a cycle count (safe). Adjust the paths to the WMS before going live.
+settings:
+  SENTINEL_SECRET_WMS_URL: the WMS API base URL, e.g. https://wms.acme.example/api
+  SENTINEL_SECRET_WMS_TOKEN: an API token with read access and the pick/move/count operations
+events: [location.outage, inventory.mismatch]
+fingerprints:
+  - {event_type: location.outage, fields: {location: location, kind: kind}, group_by: [location]}
+  - {event_type: inventory.mismatch, fields: {location: location, sku: sku, channel: channel},
+     buckets: {delta: {field: abs_delta, edges: [3], labels: [small, large]}}, group_by: [channel, location, sku]}
+connectors:
+  sources:
+    wms_health:
+      kind: poll
+      every_s: 120
+      description: WMS location health
+      url: "{{env.SENTINEL_SECRET_WMS_URL}}/locations/health"
+      headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+      items: body.locations
+      emit:
+        - type: location.outage
+          when: {item.status: {in: [down, degraded]}}
+          key: "wms:health:{{item.code}}:{{item.since}}"
+          payload: {location: "{{item.code}}", kind: "{{item.reason|default:wms_outage}}", since: "{{item.since}}"}
+    wms_reconciliation:
+      kind: poll
+      every_s: 3600
+      description: Stock differences between the WMS and each sales channel
+      url: "{{env.SENTINEL_SECRET_WMS_URL}}/reconciliation/channel-stock?changed_since={{cursor}}"
+      headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+      items: body.rows
+      cursor: {field: item.checked_at, initial: "2026-01-01T00:00:00Z"}
+      emit:
+        - type: inventory.mismatch
+          when: {item.wms_qty: {exists: true}, item.channel_qty: {exists: true}}
+          key: "wms:recon:{{item.run_id}}:{{item.channel}}:{{item.location}}:{{item.sku}}"
+          payload: {location: "{{item.location}}", sku: "{{item.sku}}", channel: "{{item.channel}}",
+                    wms_qty: "{{item.wms_qty|int}}", channel_qty: "{{item.channel_qty|int}}",
+                    abs_delta: "{{item.delta|abs|int}}"}
+  lookups:
+    wms.stock:
+      description: Stock for a SKU at every location
+      params: {sku: str}
+      request: {method: GET, url: "{{env.SENTINEL_SECRET_WMS_URL}}/stock/{{params.sku}}",
+                headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}}
+    wms.order:
+      description: An order's location, pick status and priority in the WMS
+      params: {order_id: str}
+      request: {method: GET, url: "{{env.SENTINEL_SECRET_WMS_URL}}/orders/{{params.order_id}}",
+                headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}}
+  actions:
+    wms.expedite_pick:
+      description: Raise an order to top pick priority (undone by resetting it to normal)
+      params: {order_id: str}
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_WMS_URL}}/orders/{{params.order_id}}/priority"
+        headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+        body: {priority: high}
+      compensate:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_WMS_URL}}/orders/{{params.order_id}}/priority"
+        headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+        body: {priority: normal}
+    wms.move_order:
+      description: Move an order to another fulfilment location (undone by moving it back)
+      params: {order_id: str, to_location: str, from_location: str}
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_WMS_URL}}/orders/{{params.order_id}}/location"
+        headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+        body: {location: "{{params.to_location}}"}
+      compensate:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_WMS_URL}}/orders/{{params.order_id}}/location"
+        headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+        body: {location: "{{params.from_location}}"}
+    wms.cycle_count:
+      description: Ask the warehouse to physically count a SKU at a location (changes no stock)
+      params: {location: str, sku: str, "note?": str}
+      safe: true
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_WMS_URL}}/cycle-counts"
+        headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+        body: {location: "{{params.location}}", sku: "{{params.sku}}", note: "{{params.note|default:Sentinel}}"}

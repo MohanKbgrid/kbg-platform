@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Starts the Sentinel model gateway at boot and restarts it if it stops. install.sh fills in HOME_DIR. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.kbgrid.sentinel-gateway</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>HOME_DIR/sentinel-gateway/venv/bin/sentinel</string>
+    <string>gateway</string>
+    <string>--config</string><string>HOME_DIR/sentinel-gateway/gateway.yaml</string>
+    <string>--host</string><string>0.0.0.0</string>
+    <string>--port</string><string>8090</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>HOME_DIR/sentinel-gateway/gateway.log</string>
+  <key>StandardErrorPath</key><string>HOME_DIR/sentinel-gateway/gateway.log</string>
+</dict>
+</plist>

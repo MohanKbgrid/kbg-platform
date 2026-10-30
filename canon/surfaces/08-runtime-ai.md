@@ -51,6 +51,35 @@ ai_invocation         capability_key · provider · model · tokens_in/out · la
                       · outcome · stub (bool) · at
 ```
 
+## Four layers, kept apart
+
+An agentic system mixes four jobs that must be separable, or each new domain copies and re-cuts the
+mix, and the size of the organisation starts to drive the code. Keep them as four layers with
+contracts between them. (Worked in Sentinel; `sentinel/docs/adr/ADR-003`. The split is a **logical**
+boundary inside one product, not four deployables: both halves run on one spine of events and
+cases, and splitting the deployment would duplicate the case engine.)
+
+| Layer | Job | Generic part | A domain or tenant supplies |
+|---|---|---|---|
+| **A. Business monitoring** | Sense the business | Sources, schedules, monitors, data checks | Detector queries, metrics, thresholds |
+| **B. Agent functionality** | Decide and propose | Case engine, routing, playbooks, learning, idempotent execution | Templates with **role slots** (D9) |
+| **C1. Org and assignment** | Who holds which role, where, when | Role tree, scopes, time-bound assignments, vacancy and escalation | The people and the bindings |
+| **C2. Authority and policy** | What a role may do without an approver | Policy engine: most-specific row wins, hard rows, segregation of duties, the ceiling rule | The vocabulary of limits |
+| **D. Agent oversight** | Watch the agents | Agreement, reversals, outcome checks, cost, drift, the stop switch | Nothing: it reports to people |
+
+**Contracts between layers.** A feeds B with canonical events. B asks C1 who holds a role slot in a
+scope today, and escalates a vacancy up the tree. B acts through the domain's own core by asking
+`authorise(actor, action, object, scope, amount)`; this is the RBAC surface's decision function (see
+Surface 3), not a second one. Every proposal, decision, execution and outcome goes to D, and D may
+stop, demote or cap an agent.
+
+**Two rules that make the split safe.**
+- **The watched must not hold its own keys.** Enforcement lives in each domain's core, which calls
+  `authorise()` on every agent-triggerable write. The agent framework asks; the core decides.
+- **Derive the tree, never the authority.** Reporting lines can be derived from history. Authority
+  cannot: deriving it from observed approvals would turn today's out-of-policy approvals into
+  tomorrow's policy.
+
 ## Doctrines that bind here
 
 **D4** missing data is a finding — a model may not invent · **D8** a draft never blocks capture ·
@@ -82,9 +111,20 @@ being wrong is expensive and being right is unverifiable. Those want a rule, and
 8. **An expired draft does not leak.** Expire drafts; assert they cannot be accepted, and that any
    work item they raised is handled explicitly rather than orphaned.
 
+For a system that runs agents (the four layers above), these also gate. Each is a test in Sentinel,
+inherited by every domain that adopts it:
+
+9. **An agent can never approve.** Assert APPROVE is not grantable to an agent identity.
+10. **An agent never exceeds its bound role.** For every action an agent may run on its own, assert
+    that a person holding the bound role in that scope today could do the same without an approver.
+11. **Every slot is bound.** Publish a template with a slot unbound in the tenant; assert refusal.
+12. **The tree resolves.** No dangling parent, no loop, and the stop list matches the tree.
+13. **Oversight is independent.** Assert the role that oversees an agent is not the role that owns it.
+14. **Trust is pooled** across scopes unless a scope override carries its own minimum evidence.
+
 ## Divergence register
 
 | What | Why | Cost |
 |---|---|---|
-| `ai_draft` holds **0 rows**; the provider is a labelled stub | No live AI traffic; no provider contracted. | Grounding behaviour is proven against fixtures, not a real model. The stub is labelled, so this is visible rather than a false green. |
-| _Conforms on_ — the negative proof that no path exists from draft to posted document without a named human, per-field confidence, acceptance-rate measurement, config-driven capabilities. 127/127. | | |
+| `ai_draft` may hold no rows; the provider is a labelled stub | No live AI traffic; no provider contracted. | Grounding behaviour is proven against fixtures, not a real model. The stub is labelled, so this is visible rather than a false green. |
+| _Conforms on_ — the negative proof that no path exists from draft to posted document without a named human, per-field confidence, acceptance-rate measurement, config-driven capabilities. | | |

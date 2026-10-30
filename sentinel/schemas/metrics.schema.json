@@ -1,0 +1,527 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kbg-platform.example/schemas/metrics.schema.json",
+  "title": "Sentinel metrics (KPIs, monitors)",
+  "description": "metrics.yaml: datasets, metrics and monitors. SQL snippets are checked by the loader.",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Version"
+    },
+    "datasets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Dataset"
+      },
+      "title": "Datasets",
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Metric"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "monitors": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Monitor"
+      },
+      "title": "Monitors",
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "$defs": {
+    "DataChecks": {
+      "additionalProperties": false,
+      "description": "What must hold before anyone acts on a dataset: the facts are reproducible and reconciled without AI.\nWhile a check fails the dataset is *not trusted*: its monitors raise no breach and close no case, its\nmetrics say so wherever they are shown, outcome checks on it give no verdict, and a ``data.untrusted``\ncase goes to the dataset's owner until the data is right again (``data.trusted``).",
+      "properties": {
+        "fresh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fresh"
+        },
+        "max_age_hours": {
+          "default": 26,
+          "exclusiveMinimum": 0,
+          "title": "Max Age Hours",
+          "type": "number"
+        },
+        "min_rows": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Min Rows",
+          "type": "integer"
+        },
+        "unique": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unique",
+          "type": "array"
+        },
+        "not_null": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Not Null",
+          "type": "array"
+        },
+        "invalid": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Invalid",
+          "type": "object"
+        },
+        "types": {
+          "additionalProperties": {
+            "enum": [
+              "boolean",
+              "integer",
+              "number",
+              "time",
+              "text"
+            ],
+            "type": "string"
+          },
+          "title": "Types",
+          "type": "object"
+        }
+      },
+      "title": "DataChecks",
+      "type": "object"
+    },
+    "Dataset": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "sql",
+            "http",
+            "file",
+            "overlay",
+            "sentinel",
+            "lookup"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataChecks"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "refresh_minutes": {
+          "default": 15,
+          "minimum": 1,
+          "title": "Refresh Minutes",
+          "type": "integer"
+        },
+        "dsn_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsn Env"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Items"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lookup"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "each": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Each"
+        },
+        "columns": {
+          "additionalProperties": true,
+          "title": "Columns",
+          "type": "object"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        },
+        "pages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pages"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "vars": {
+          "additionalProperties": true,
+          "title": "Vars",
+          "type": "object"
+        },
+        "append": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Append",
+          "type": "array"
+        },
+        "derive": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Derive",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Dataset",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "dataset": {
+          "title": "Dataset",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "time": {
+          "title": "Time",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filter"
+        },
+        "format": {
+          "default": "number",
+          "enum": [
+            "percent",
+            "number",
+            "hours",
+            "currency"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "dataset",
+        "value",
+        "time"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "Monitor": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "By",
+          "type": "array"
+        },
+        "window_days": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Window Days",
+          "type": "number"
+        },
+        "every_minutes": {
+          "default": 60,
+          "minimum": 1,
+          "title": "Every Minutes",
+          "type": "integer"
+        },
+        "when": {
+          "additionalProperties": true,
+          "title": "When",
+          "type": "object"
+        },
+        "min_rows": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Min Rows",
+          "type": "integer"
+        },
+        "emit": {
+          "default": "kpi.breach",
+          "title": "Emit",
+          "type": "string"
+        },
+        "recover": {
+          "default": true,
+          "title": "Recover",
+          "type": "boolean"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "metric"
+      ],
+      "title": "Monitor",
+      "type": "object"
+    },
+    "Pages": {
+      "additionalProperties": false,
+      "description": "Read page after page: ``{{page}}`` in the lookup's args counts from ``start``; reading stops at an empty\npage, a page shorter than ``size`` (when given) or after ``max`` pages.",
+      "properties": {
+        "start": {
+          "default": 1,
+          "title": "Start",
+          "type": "integer"
+        },
+        "max": {
+          "default": 20,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Max",
+          "type": "integer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        }
+      },
+      "title": "Pages",
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+# Connector template: Delhivery (B2C express). Check paths and fields against your account.
+name: delhivery
+title: Delhivery
+description: >
+  Scan-push updates become NDR, RTO and lost-shipment events; a lookup tracks a waybill; actions ask for a
+  re-attempt or cancel a shipment before pickup (customer-facing, so a person decides).
+settings:
+  SENTINEL_SECRET_DELHIVERY_TOKEN: API token from the Delhivery One panel (sent as "Token <value>")
+  SENTINEL_SECRET_DELHIVERY_WEBHOOK: the token Delhivery sends with scan pushes (agree the header with them)
+events: [shipment.ndr, shipment.rto, shipment.lost]
+fingerprints:
+  - {event_type: shipment.ndr, fields: {awb: awb, courier: courier}}
+  - {event_type: shipment.rto, fields: {awb: awb, courier: courier}}
+  - {event_type: shipment.lost, fields: {awb: awb, courier: courier}}
+connectors:
+  sources:
+    delhivery_scans:                      # ask Delhivery to push scans to https://<server>/v1/hooks/delhivery_scans
+      kind: webhook
+      description: Delhivery scan push
+      signature: {header: Authorization, secret_env: SENTINEL_SECRET_DELHIVERY_WEBHOOK, mode: token}
+      emit:
+        - type: shipment.ndr
+          # a failed attempt leaves the shipment "Pending" with the reason in Instructions; tune to your NSL codes
+          when: {body.Shipment.Status.StatusType: UD, body.Shipment.Status.Status: Pending,
+                 body.Shipment.Status.Instructions: {exists: true}}
+          key: "delhivery:{{body.Shipment.AWB}}:{{body.Shipment.Status.StatusDateTime}}"
+          payload: {awb: "{{body.Shipment.AWB}}", courier: delhivery, order_id: "{{body.Shipment.ReferenceNo}}",
+                    status: "{{body.Shipment.Status.Status}}", reason: "{{body.Shipment.Status.Instructions}}",
+                    code: "{{body.Shipment.NSLCode}}"}
+        - type: shipment.rto
+          when: {body.Shipment.Status.StatusType: RT}
+          key: "delhivery:{{body.Shipment.AWB}}:RT:{{body.Shipment.Status.Status}}"
+          payload: {awb: "{{body.Shipment.AWB}}", courier: delhivery, order_id: "{{body.Shipment.ReferenceNo}}",
+                    status: "{{body.Shipment.Status.Status}}", reason: "{{body.Shipment.Status.Instructions}}"}
+        - type: shipment.lost
+          when: {body.Shipment.Status.Status: {in: [LOST, Lost]}}
+          key: "delhivery:{{body.Shipment.AWB}}:LOST"
+          payload: {awb: "{{body.Shipment.AWB}}", courier: delhivery, order_id: "{{body.Shipment.ReferenceNo}}",
+                    status: "{{body.Shipment.Status.Status}}"}
+  lookups:
+    delhivery.track:
+      description: Status and scans of a Delhivery waybill
+      params: {awb: str}
+      request: {method: GET, url: "https://track.delhivery.com/api/v1/packages/json/?waybill={{params.awb}}",
+                headers: {Authorization: "Token {{env.SENTINEL_SECRET_DELHIVERY_TOKEN}}"}}
+      result: body.ShipmentData
+  actions:
+    delhivery.reattempt:
+      description: Ask Delhivery to re-attempt delivery of an undelivered shipment. Cannot be undone.
+      params: {awb: str}
+      request:
+        method: POST
+        url: https://track.delhivery.com/api/p/update
+        headers: {Authorization: "Token {{env.SENTINEL_SECRET_DELHIVERY_TOKEN}}"}
+        body: {data: [{waybill: "{{params.awb}}", act: RE-ATTEMPT}]}
+    delhivery.cancel:
+      description: Cancel a shipment that has not been picked up. Cannot be undone.
+      params: {awb: str}
+      request:
+        method: POST
+        url: https://track.delhivery.com/api/p/edit
+        headers: {Authorization: "Token {{env.SENTINEL_SECRET_DELHIVERY_TOKEN}}"}
+        body: {waybill: "{{params.awb}}", cancellation: "true"}

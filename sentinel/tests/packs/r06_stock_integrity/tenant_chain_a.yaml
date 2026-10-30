@@ -1,0 +1,11 @@
+# Tenant A: a store chain with store managers, a loss-prevention officer and regional managers.
+layer: chain_a
+roles:
+  store_manager: Store manager (accountable for the store's stock)
+  slp_officer: Security and loss prevention officer
+  regional_manager: Regional manager
+  ops_head: Operations head
+slot_bindings:
+  accountable: store_manager
+  shrink_owner: slp_officer
+  escalation: regional_manager

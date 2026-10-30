@@ -116,9 +116,15 @@ a new dated record referencing the original. This is what makes an audit trail a
 than a table someone can quietly fix.
 
 ### D3 — Idempotency by SOURCE id, not by server id
-The client mints the id (a UUID from the device, an external system's document number) and it
-becomes the primary key. A re-sent capture then collides instead of duplicating — double-insert is
-impossible *by construction* rather than by a de-dup pass that someone has to remember to run.
+The client mints the id (a UUID from the device, an external system's document number) and the
+database **enforces its uniqueness**. A re-sent capture then collides instead of duplicating —
+double-insert is impossible *by construction* rather than by a de-dup pass that someone has to
+remember to run.
+
+The source id must be **unique and enforced** (a `UNIQUE` or primary-key constraint, scoped to the
+tenant and, for an outbox, the topic). It does **not** have to be the primary key: a
+database-minted key is valid as long as the source id carries its own unique constraint. What is
+not valid is an id that is *checked in application code* and not by the database.
 
 ### D4 — Missing data is a FINDING, never a licence to invent
 No default shelf life, no assumed price, no "probably 2 days". A surface that cannot answer returns
@@ -151,6 +157,13 @@ proceeding is genuinely unsafe (credit limit, physical stock) and each one is na
 Approvals, escalations and queues address an org position. People change jobs, go on leave, and
 leave the company; a workflow bound to a person's login silently stops routing. The person is
 resolved from the position at decision time and recorded on the audit event.
+
+**Role slots.** The same rule applies one level up. A reusable template (a workflow, a playbook, an
+agent) must not name a tenant's positions either, or it is welded to one organisation. It names
+**slots** (`accountable: category_buyer`, `reviewer: finance_lead`), and each tenant **binds** every
+slot to a position of its own. A template whose slot is unbound in a tenant is refused at publish,
+not discovered when the first case has nobody to go to. Binding is data (D5); it changes with no
+deploy. Worked in Sentinel (`sentinel/docs/adr/ADR-003`, the role-slot rule).
 
 ### D10 — Timestamps are capture time, not sync time
 A document posts to the day it *happened*. A late sync must never move a transaction into the wrong
@@ -199,8 +212,30 @@ A project **may** diverge from a spec. It may not diverge *silently*. Each surfa
 divergence register: what the project does differently, why, and what it costs. An empty register
 means "we follow the canon", and that claim should be true.
 
+**For an installed package, the register is a per-client adoption record.** A base you vendor is
+owned by the project, so its divergences sit in the spec's register. A package you *install* (Sentinel
+is the example) keeps changing under every client that runs it, so each client also keeps an
+**adoption record**: the pinned pair of versions tested together, the date and who approved it on
+each side, the evidence (golden cases, replay, dual run), and the rollback pair. A past entry is
+never edited; a new adoption is a new entry. Every release is classed in its changelog, and the
+class decides how it is adopted:
+
+| Class | Meaning | Rule |
+|---|---|---|
+| **Compatible** | Additive | Ships switched off; nothing changes until the client enables it |
+| **Behavioural** | Same contracts, different outcomes | Names the affected patterns; adopted only after a dual run |
+| **Breaking** | A contract changes | Migration note, automated migration where possible, deprecation window |
+
+The template is `sentinel/docs/templates/SENTINEL_ADOPTION.md`; the rules are
+`sentinel/docs/adr/ADR-004`. A project adopting any installed component should copy that shape,
+not invent one.
+
 ## When this canon is wrong
 
 It is derived from one programme's experience. Where a spec conflicts with a real business
 requirement, **the business wins** — and that conflict is a defect in the spec, to be fixed here so
 the next project inherits the correction. Raise it; do not work around it privately.
+
+## Licence
+
+This text is licensed under [CC BY 4.0](../LICENSE-docs). Please credit "KB Grid" when you reuse or adapt it.

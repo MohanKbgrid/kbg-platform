@@ -1,0 +1,81 @@
+name: ci-sentinel
+on:
+  push:
+    branches: [main]
+    paths: ["sentinel/**", ".github/workflows/ci-sentinel.yml", ".github/workflows/release-sentinel.yml", ".github/workflows/sentinel-build.yml"]
+  pull_request:
+    paths: ["sentinel/**", ".github/workflows/ci-sentinel.yml", ".github/workflows/release-sentinel.yml", ".github/workflows/sentinel-build.yml"]
+permissions: { contents: read }
+defaults:
+  run: { working-directory: sentinel }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: sentinel, POSTGRES_PASSWORD: sentinel, POSTGRES_DB: sentinel_test }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python }}" }
+      - run: pip install -e ".[dev,anthropic]"
+      - name: headless Chromium for the console browser tests
+        run: python -m playwright install --with-deps chromium
+      - name: lint
+        run: ruff check sentinel tests examples scripts
+      - name: runtime dependencies are all open source
+        run: python scripts/check_licences.py
+      - name: reference SQL schema is up to date
+        run: python scripts/gen_schema.py --check
+      - name: guard against silently dropped tests
+        run: |
+          n=$(python -m pytest -o addopts="" --co -q | grep -c "::")
+          echo "collected $n tests"; test "$n" -ge 1900
+      - name: tests on SQLite
+        run: python -m pytest -o addopts="" --cov=sentinel
+      - name: tests on PostgreSQL (incl. multi-process)
+        env:
+          SENTINEL_TEST_PG: "postgresql://sentinel:sentinel@localhost:5432/sentinel_test"
+          SENTINEL_TEST_PGVECTOR: "postgresql://sentinel:sentinel@localhost:5432/sentinel_test"
+        run: python -m pytest -o addopts=""
+
+  crewai:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -e ".[dev,crewai]"
+      - name: the CrewAI add-on (optional extra)
+        run: |
+          n=$(python -m pytest -o addopts="" --co -q tests/test_crew.py | grep -c "::")
+          test "$n" -ge 5
+          python -m pytest -o addopts="" tests/test_crew.py tests/test_providers.py tests/test_sop.py tests/test_learning.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the runtime image
+        run: docker build -f deploy/Dockerfile -t kbg-sentinel:ci .
+      - name: image smoke test (CLI, analytics extensions offline, gateway import)
+        run: |
+          docker run --rm --network none kbg-sentinel:ci new-token
+          docker run --rm --network none --entrypoint pg_dump kbg-sentinel:ci --version | grep -q "PostgreSQL) 16"
+          docker run --rm --network none --entrypoint python kbg-sentinel:ci -c 'from sentinel import SQLiteStore; SQLiteStore("/tmp/s.db").close(); from sentinel.analytics import Analytics; a = Analytics(sqlite="/tmp/s.db"); print("analytics offline ok", a.automation()); import sentinel.gateway'
+      - name: compose file is valid
+        working-directory: sentinel/deploy/site
+        run: |
+          cp .env.example .env
+          docker compose config -q
+
+  # Runs every step of the release EXCEPT publishing and signing, so a broken release is found in a pull request.
+  release-dry-run:
+    uses: ./.github/workflows/sentinel-build.yml
+    with: { version: "0.0.0-dryrun" }

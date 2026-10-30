@@ -1,0 +1,84 @@
+name: release-sentinel
+# Releases Sentinel only, from a tag named sentinel-vX.Y.Z. A canon edit never forces a Sentinel release.
+# The build steps live in sentinel-build.yml, which CI also runs on every pull request.
+on:
+  push: { tags: ["sentinel-v*"] }
+permissions: { contents: read }
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: the tagged commit must be on main (a tag on a side branch never releases)
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::$GITHUB_SHA is not on main"; exit 1; }
+      - id: v
+        name: the tag, sentinel/pyproject.toml and sentinel.__version__ must name the same version
+        run: |
+          py=$(python -c "import tomllib;print(tomllib.load(open('sentinel/pyproject.toml','rb'))['project']['version'])")
+          mod=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' sentinel/sentinel/__init__.py)
+          tag="${GITHUB_REF_NAME#sentinel-v}"
+          [ "$tag" = "$py" ] || { echo "::error::tag $GITHUB_REF_NAME does not match pyproject version $py"; exit 1; }
+          [ "$mod" = "$py" ] || { echo "::error::sentinel.__version__ is $mod, pyproject says $py"; exit 1; }
+          echo "version=$py" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/sentinel-build.yml
+    with: { version: "${{ needs.version.outputs.version }}" }
+
+  # Trusted publishing: no token is stored anywhere. One-time setup on pypi.org is in docs/RELEASING.md.
+  pypi:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    environment: { name: pypi, url: "https://pypi.org/project/kbg-sentinel/" }
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  image:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # the GitHub release and its files
+      packages: write          # the image on ghcr.io
+      id-token: write          # keyless signing (Sigstore)
+    env:
+      IMAGE: ${{ needs.build.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - id: bp
+        uses: docker/build-push-action@v6
+        with:
+          context: sentinel
+          file: sentinel/deploy/Dockerfile
+          push: true
+          tags: "${{ env.IMAGE }}:${{ needs.version.outputs.version }}"
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=Apache-2.0
+          provenance: mode=max
+          sbom: true
+      - uses: actions/download-artifact@v4
+        with: { name: sbom, path: . }
+      - uses: sigstore/cosign-installer@v3
+      - name: sign the image (keyless) and attest the SBOM
+        run: |
+          ref="${IMAGE}@${{ steps.bp.outputs.digest }}"
+          cosign sign --yes "$ref"
+          cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$ref"
+      - name: GitHub release with the SBOM and the image digest
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          echo "${IMAGE}@${{ steps.bp.outputs.digest }}" > image-digest.txt
+          gh release create "${GITHUB_REF_NAME}" sbom.cdx.json image-digest.txt --generate-notes --verify-tag \
+            || gh release upload "${GITHUB_REF_NAME}" sbom.cdx.json image-digest.txt --clobber

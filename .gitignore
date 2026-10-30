@@ -4,3 +4,8 @@ build/
 __pycache__/
 *.egg-info/
 *.tgz
+
+# agent working copies
+.claude/worktrees/
+.site-src/
+site/

@@ -1,8 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """D3 — idempotency by SOURCE id, not by server id.
 
-The client (a device, an external system) mints the id and it BECOMES the primary key. A re-sent
-capture then collides instead of duplicating: double-insert is impossible by construction rather
-than by a de-dup pass someone has to remember to run.
+The client (a device, an external system) mints the id and the database ENFORCES its uniqueness. A
+re-sent capture then collides instead of duplicating: double-insert is impossible by construction
+rather than by a de-dup pass someone has to remember to run. The source id must be unique and
+enforced; it need not be the primary key (a database-minted key is fine if the source id has its own
+unique constraint).
 
 This matters most where the network is worst. A field app that flushes its queue three times on a
 bad connection must produce one row, and it must do so without the server keeping a seen-set.

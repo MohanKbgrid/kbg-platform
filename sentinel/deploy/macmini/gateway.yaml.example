@@ -1,0 +1,24 @@
+# Copy to ~/sentinel-gateway/gateway.yaml. One entry per customer site; tokens are never stored, only hashes.
+# Make a token:  ~/sentinel-gateway/venv/bin/sentinel new-token
+upstream: http://127.0.0.1:11434      # Ollama, listening on localhost only
+max_concurrent: 4                     # whole machine; raise with memory (OLLAMA_NUM_PARALLEL should match)
+queue_timeout_s: 20                   # busy longer than this -> 503 and the site falls back to Claude
+upstream_timeout_s: 120               # never more than a site waits (sites send their own limit)
+max_num_ctx: 16384                    # caps a request's context so one customer cannot crowd out the rest
+max_num_predict: 2048
+keep_alive: 30m                       # the host decides how long models stay loaded
+usage_dir: ~/sentinel-gateway/usage   # monthly JSON-lines usage ledger for billing (no prompts)
+public_metrics: false
+admins:
+  - {sha256: REPLACE_WITH_64_HEX}     # for GET /usage and /metrics
+tenants:
+  - name: acme
+    sha256: REPLACE_WITH_64_HEX
+    max_concurrent: 2
+    per_minute: 120
+    models: ["qwen2.5:7b-instruct", "nomic-embed-text"]
+  - name: northwind-dairy
+    sha256: REPLACE_WITH_64_HEX
+    max_concurrent: 2
+    per_minute: 120
+    models: ["qwen2.5:7b-instruct"]

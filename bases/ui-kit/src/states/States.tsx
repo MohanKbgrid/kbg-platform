@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 KB Grid
 /**
  * The eight states most software forgets — Experience surface, canon §06.
  *
@@ -17,6 +19,9 @@
  *                  arrived and NAME what did not.
  */
 import type { ReactNode } from 'react';
+import {
+  DENIAL_COPY, DEFAULT_DENIAL_KIND, assertReason, isDenialKind, type DenialKind,
+} from '../access/denial.js';
 
 const cls = (...xs: (string | false | undefined)[]) => xs.filter(Boolean).join(' ');
 
@@ -87,16 +92,26 @@ export function FilteredEmptyState({
  * never disagree (canon RBAC §3).
  */
 export function DeniedState({
-  action, reason, whoCan, inline = false,
-}: { action: string; reason: string; whoCan?: string; inline?: boolean }) {
+  action, reason, whoCan, kind = DEFAULT_DENIAL_KIND, inline = false,
+}: { action: string; reason: string; whoCan?: string; kind?: DenialKind; inline?: boolean }) {
+  assertReason(reason, 'DeniedState');
+  if (!isDenialKind(kind)) throw new Error(`DeniedState: unknown denial kind ${String(kind)}`);
+  const copy = DENIAL_COPY[kind];
   return (
     <div
-      className={cls('kbg-state', 'kbg-state--denied', inline && 'kbg-state--inline')}
-      role="note"
+      className={cls(
+        'kbg-state', 'kbg-state--denied', `kbg-state--kind-${kind.toLowerCase().replace(/_/g, '-')}`,
+        `kbg-state--tone-${copy.tone}`, inline && 'kbg-state--inline',
+      )}
+      role={copy.tone === 'done' ? 'status' : 'note'}
+      data-denial-kind={kind}
     >
-      <p className="kbg-state__title">{action} is not available to you</p>
+      <p className="kbg-state__title">{copy.title(action)}</p>
       <p className="kbg-state__body">{reason}</p>
-      {whoCan && <p className="kbg-state__who">Who can: <strong>{whoCan}</strong></p>}
+      <p className="kbg-state__next">{copy.nextStep(whoCan)}</p>
+      {whoCan && kind === 'AUTHORITY' && (
+        <p className="kbg-state__who">Who can: <strong>{whoCan}</strong></p>
+      )}
     </div>
   );
 }

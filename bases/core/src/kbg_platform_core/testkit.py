@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 KB Grid
 """D5 + D7 — prove the control controls, and never run destructive tests on the wrong database.
 
 Two assertions this programme learned to insist on, because a suite without them can be entirely

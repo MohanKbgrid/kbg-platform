@@ -1,0 +1,196 @@
+# Template: dairy distribution (plant -> routes -> distributors / retailers), cold chain, indents and collections
+name: dairy-distribution
+title: Dairy distribution (DSD)
+description: >-
+  Late or broken routes, cold-chain breaches, short supply against indents, missing indents, overdue
+  distributor payments and crate shortfalls. Fits direct-store-delivery dairy and other perishable
+  distribution.
+registry:
+  roles:
+    plant_head: Plant Head - top of the operations tree
+    logistics_manager: Logistics Manager - owns routes and vehicles
+    route_supervisor: Route Supervisor - first line for route and delivery exceptions
+    sales_manager: Sales Manager - owns distributor relationships
+    area_sales_officer: Area Sales Officer - first line for indents and supply gaps
+    qa_officer: QA Officer - owns product safety and cold chain
+    finance_ops: Finance Ops - owns collections and credit
+    supervisor: Operations Supervisor - triages anything the registry does not recognise
+  fingerprints:
+    - event_type: route.delayed
+      fields: {route: route_id, vehicle: vehicle_no, depot: depot}
+      buckets:
+        delay: {field: delay_minutes, edges: [30, 90], labels: ["<30m", "30-90m", ">90m"]}
+      group_by: [route]
+    - event_type: cold_chain.breach
+      fields: {vehicle: vehicle_no, route: route_id, batch: batch_no}
+      buckets:
+        temp: {field: max_temp_c, edges: [6, 10], labels: [ok, warm, hot]}
+        duration: {field: minutes_above_limit, edges: [15, 45], labels: [short, medium, long]}
+      group_by: [vehicle, batch]
+    - event_type: order.short_supplied
+      fields: {distributor: distributor_code, sku: sku, route: route_id}
+      buckets:
+        short: {field: short_pct, edges: [5, 20], labels: [minor, moderate, major]}
+      group_by: [distributor, sku]
+    - event_type: indent.missing
+      fields: {distributor: distributor_code, area: area}
+      group_by: [distributor]
+    - event_type: payment.overdue
+      fields: {distributor: distributor_code, area: area}
+      buckets:
+        overdue: {field: days_overdue, edges: [7, 30], labels: ["<7d", "7-30d", ">30d"]}
+      group_by: [distributor]
+    - event_type: crates.gap
+      fields: {route: route_id, distributor: distributor_code}
+      buckets:
+        gap: {field: crates_short, edges: [10, 50], labels: [small, medium, large]}
+      group_by: [route, distributor]
+  patterns:
+    - id: route_delay_minor
+      description: Route running late by under 90 minutes; tell the distributors on the route.
+      event_types: [route.delayed]
+      match: {delay: ["<30m", "30-90m"]}
+      route: auto
+      playbook:
+        - action: notify_distributor
+          params: {distributor_code: "{{payload.next_distributor}}", message: "Delivery running late, revised ETA {{payload.revised_eta}}"}
+      allowed_actions: [notify_distributor, reassign_vehicle]
+      disposition_codes: [informed, vehicle_reassigned, no_action]
+      playbook_disposition: informed
+      owner_role: route_supervisor
+      escalation_role: logistics_manager
+      sla_minutes: 30
+      severity: low
+    - id: route_delay_major
+      description: Route more than 90 minutes late; decide whether to reassign a vehicle.
+      event_types: [route.delayed]
+      match: {delay: ">90m"}
+      route: hitl
+      max_route: llm
+      allowed_actions: [reassign_vehicle, notify_distributor]
+      disposition_codes: [vehicle_reassigned, informed, no_action]
+      owner_role: route_supervisor
+      escalation_role: logistics_manager
+      sla_minutes: 20
+      severity: high
+      llm_instructions: Check vehicle availability at the depot before proposing a reassignment.
+    - id: cold_chain_breach
+      description: Product held above the safe temperature; hold the batch and inspect. Never automatic.
+      event_types: [cold_chain.breach]
+      match: {temp: [warm, hot]}
+      route: hitl
+      max_route: hitl
+      allowed_actions: [hold_batch, raise_qa_inspection]
+      disposition_codes: [batch_held, inspected_released, destroyed, false_positive]
+      owner_role: qa_officer
+      escalation_role: plant_head
+      sla_minutes: 15
+      severity: critical
+    - id: short_supply_minor
+      description: Distributor received slightly less than the indent; carry the balance to tomorrow.
+      event_types: [order.short_supplied]
+      match: {short: minor}
+      route: llm
+      playbook:
+        - action: carry_forward_indent
+          params: {distributor_code: "{{payload.distributor_code}}", sku: "{{payload.sku}}", qty: "{{payload.short_qty}}"}
+      allowed_actions: [carry_forward_indent, create_supplementary_dispatch]
+      disposition_codes: [carried_forward, supplementary_sent, no_action]
+      playbook_disposition: carried_forward
+      owner_role: area_sales_officer
+      escalation_role: sales_manager
+      sla_minutes: 240
+      model_task: triage
+    - id: short_supply_major
+      description: Large short supply; decide on a supplementary dispatch.
+      event_types: [order.short_supplied]
+      match: {short: [moderate, major]}
+      route: hitl
+      max_route: llm
+      allowed_actions: [create_supplementary_dispatch, carry_forward_indent, notify_distributor]
+      disposition_codes: [supplementary_sent, carried_forward, informed, no_action]
+      owner_role: area_sales_officer
+      escalation_role: sales_manager
+      sla_minutes: 60
+      severity: high
+    - id: indent_missing
+      description: A regular distributor has not placed today's indent; remind them before the cut-off.
+      event_types: [indent.missing]
+      route: auto
+      playbook:
+        - action: notify_distributor
+          params: {distributor_code: "{{payload.distributor_code}}", message: "Today's indent is not in yet; cut-off {{payload.cutoff}}"}
+      allowed_actions: [notify_distributor]
+      disposition_codes: [reminded, indent_received, no_action]
+      playbook_disposition: reminded
+      owner_role: area_sales_officer
+      sla_minutes: 60
+      severity: low
+    - id: payment_overdue_early
+      description: Distributor payment overdue under 30 days; send a reminder.
+      event_types: [payment.overdue]
+      match: {overdue: ["<7d", "7-30d"]}
+      route: auto
+      playbook:
+        - action: send_payment_reminder
+          params: {distributor_code: "{{payload.distributor_code}}", amount: "{{payload.amount}}"}
+      allowed_actions: [send_payment_reminder]
+      disposition_codes: [reminded, paid, no_action]
+      playbook_disposition: reminded
+      owner_role: finance_ops
+      sla_minutes: 1440
+      severity: low
+    - id: payment_overdue_long
+      description: Over 30 days overdue; decide whether to block credit. Always a person.
+      event_types: [payment.overdue]
+      match: {overdue: ">30d"}
+      route: hitl
+      max_route: hitl
+      allowed_actions: [block_credit, send_payment_reminder]
+      disposition_codes: [credit_blocked, reminded, paid, written_off]
+      owner_role: finance_ops
+      escalation_role: sales_manager
+      sla_minutes: 1440
+      severity: high
+    - id: crates_gap
+      description: Crates not returned on a route; raise recovery with the distributor.
+      event_types: [crates.gap]
+      route: hitl
+      max_route: llm
+      allowed_actions: [raise_crate_recovery, notify_distributor]
+      disposition_codes: [recovery_raised, informed, no_action]
+      owner_role: route_supervisor
+      escalation_role: logistics_manager
+      sla_minutes: 480
+people:
+  roles:
+    plant_head: {name: Plant Head}
+    logistics_manager: {name: Logistics Manager, parent: plant_head}
+    route_supervisor: {name: Route Supervisor, parent: logistics_manager}
+    sales_manager: {name: Sales Manager, parent: plant_head}
+    area_sales_officer: {name: Area Sales Officer, parent: sales_manager}
+    qa_officer: {name: QA Officer, parent: plant_head}
+    finance_ops: {name: Finance Ops, parent: plant_head}
+    supervisor: {name: Operations Supervisor, parent: plant_head}
+  people:
+    - {id: admin, name: "Replace me: the plant head"}
+  assignments:
+    - {person_id: admin, role_id: plant_head}
+  authority:
+    - {role_id: route_supervisor, action: notify_distributor}
+    - {role_id: route_supervisor, action: reassign_vehicle}
+    - {role_id: route_supervisor, action: raise_crate_recovery}
+    - {role_id: area_sales_officer, action: notify_distributor}
+    - {role_id: area_sales_officer, action: carry_forward_indent}
+    - {role_id: area_sales_officer, action: create_supplementary_dispatch, level: propose}
+    - {role_id: sales_manager, action: create_supplementary_dispatch}
+    - {role_id: qa_officer, action: hold_batch}
+    - {role_id: qa_officer, action: raise_qa_inspection}
+    - {role_id: finance_ops, action: send_payment_reminder}
+    - {role_id: finance_ops, action: block_credit, level: propose}
+    - {role_id: plant_head, action: block_credit}
+    - {role_id: logistics_manager, action: __kill_switch__}
+    - {role_id: plant_head, action: __promote__}
+    - {role_id: plant_head, action: __set_route__}
+    - {role_id: plant_head, action: __reverse__}
+    - {role_id: plant_head, action: __configure__}

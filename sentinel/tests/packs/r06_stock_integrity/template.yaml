@@ -1,0 +1,117 @@
+# Exemplar pack for the paradigm overhaul: retail template R06 "Stock integrity"
+# (the retail POS docs/design/SENTINEL_AGENTS.md §19, §21, §22, §38). Test fixture only: retail words live here,
+# never in sentinel/. The template names ROLE SLOTS, never an org role; each tenant binds the slots (ADR-003).
+# Start mode OBSERVE (shadow: a person approves everything); highest mode ACT for count and shelf tasks only.
+layer: r06
+slots:
+  accountable: Person accountable for stock in the scope (store or warehouse)
+  shrink_owner: Person who owns confirmed or suspected loss
+  escalation: Person above the accountable one, for missed SLAs
+
+fingerprints:
+- event_type: inv.sales_stopped
+  fields: {store: store, article: article, book_qty: book_qty}
+  group_by: [store, article]
+- event_type: inv.depletion_without_sales
+  fields: {store: store, article: article, units: units}
+  group_by: [store, article]
+- event_type: inv.qty_factor_mismatch
+  fields: {store: store, article: article, factor: factor}
+  group_by: [store, article]
+- event_type: inv.short_dated_receipt
+  fields: {store: store, article: article, vendor: vendor, life_left_pct: life_left_pct}
+  group_by: [store, article, vendor]
+- event_type: inv.fefo_breach
+  fields: {store: store, article: article}
+  group_by: [store, article]
+- event_type: inv.selling_below_zero
+  fields: {store: store, article: article}
+  group_by: [store, article]
+- event_type: recon.triangle_gap
+  fields: {store: store, gap_pct: gap_pct, business_date: business_date}
+  group_by: [store, business_date]
+
+patterns:
+- id: r06_phantom_stock
+  description: Sales stopped while book stock is normal; not on shelf, or phantom stock.
+  event_types: [inv.sales_stopped]
+  match: {book_qty: {gt: 0}}
+  route: hitl
+  max_route: auto
+  shadow: true
+  playbook:
+  - action: task.shelf_check
+    params: {store: "{{payload.store}}", article: "{{payload.article}}"}
+  allowed_actions: [task.shelf_check, task.count]
+  disposition_codes: [found_in_backroom, counted_corrected, false_positive, no_action, resolved]
+  owner_slot: accountable
+  escalation_slot: escalation
+  sla_minutes: 60
+  severity: high
+  trust_by: [store]
+- id: r06_unrecorded_loss
+  description: Stock falling with no sales; theft, unrecorded damage, unposted transfer.
+  event_types: [inv.depletion_without_sales]
+  route: hitl
+  max_route: auto
+  shadow: true
+  playbook:
+  - action: task.count
+    params: {store: "{{payload.store}}", article: "{{payload.article}}"}
+  allowed_actions: [task.count]
+  disposition_codes: [shrink_confirmed, counted_corrected, false_positive, no_action, resolved]
+  owner_slot: shrink_owner
+  escalation_slot: escalation
+  sla_minutes: 240
+  severity: high
+- id: r06_uom_error
+  description: Received or sold quantity off by an exact pack factor; master UOM wrong.
+  event_types: [inv.qty_factor_mismatch]
+  match: {factor: [6, 10, 12, 24]}
+  route: hitl
+  max_route: hitl
+  shadow: true
+  allowed_actions: [task.count]
+  owner_slot: accountable
+  severity: medium
+- id: r06_short_dated_receipt
+  description: Remaining shelf life at receipt below the category minimum.
+  event_types: [inv.short_dated_receipt]
+  match: {life_left_pct: {lt: 50}}
+  route: hitl
+  max_route: hitl
+  shadow: true
+  owner_slot: accountable
+  escalation_slot: escalation
+  severity: medium
+- id: r06_fefo_breach
+  description: Newer batch selling while an older batch sits in stock; rotate the shelf.
+  event_types: [inv.fefo_breach]
+  route: hitl
+  max_route: auto
+  shadow: true
+  playbook:
+  - action: task.shelf_check
+    params: {store: "{{payload.store}}", article: "{{payload.article}}", kind: rotate}
+  allowed_actions: [task.shelf_check]
+  owner_slot: accountable
+  severity: low
+- id: r06_receiving_lag
+  description: Item selling while book stock is zero or negative; goods on shelf, receipt not posted.
+  event_types: [inv.selling_below_zero]
+  route: hitl
+  max_route: hitl
+  shadow: true
+  owner_slot: accountable
+  escalation_slot: escalation
+  severity: medium
+- id: r06_daily_triangle_gap
+  description: Sales at retail, tender received and stock depletion do not reconcile for the store and day.
+  event_types: [recon.triangle_gap]
+  match: {gap_pct: {gt: 0.5}}
+  route: hitl
+  max_route: hitl
+  shadow: true
+  owner_slot: shrink_owner
+  escalation_slot: escalation
+  severity: high

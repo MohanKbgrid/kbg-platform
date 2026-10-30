@@ -1,0 +1,46 @@
+# Connector template: Postgres outbox. An application writes its business events into a table
+# (sentinel_outbox) in the same transaction as the change; this reads that table with a read-only login,
+# resuming where it left off. The application holds no Sentinel URL or secret.
+#
+# Table contract (create it in the application's database):
+#   CREATE TABLE sentinel_outbox (id bigserial PRIMARY KEY, tenant_id uuid NOT NULL, event_type text NOT NULL,
+#     idempotency_key text NOT NULL, correlation_id text, payload jsonb NOT NULL,
+#     occurred_at timestamptz DEFAULT now(), created_at timestamptz NOT NULL DEFAULT now());
+name: postgres-outbox
+title: Postgres outbox
+description: >
+  Reads an application's Sentinel outbox table: orders fulfilled or cancelled (close "order stuck" cases at
+  the source) and channel sync jobs failing and recovering. Edit the event list and fingerprints for your
+  own events.
+settings:
+  SENTINEL_SECRET_OUTBOX_DB: >
+    postgresql://sentinel_reader:<password>@<host>:5432/<database>?sslmode=require  (a read-only login with
+    SELECT on the outbox table only)
+  SENTINEL_SECRET_OUTBOX_TENANT: the tenant id (tenant_id) for this business
+events: [order.fulfilled, order.cancelled, channel.sync_failed, channel.sync_ok]
+fingerprints:
+  - {event_type: order.fulfilled, fields: {order: order_id, channel: channel}}
+  - {event_type: order.cancelled, fields: {order: order_id, channel: channel}}
+  - {event_type: channel.sync_failed, fields: {channel: channel, operation: operation, error: error_code},
+     group_by: [channel, operation]}
+  - {event_type: channel.sync_ok, fields: {channel: channel, operation: operation}}
+connectors:
+  sources:
+    outbox:
+      kind: sql
+      every_s: 60
+      description: the Sentinel outbox table
+      dsn_env: SENTINEL_SECRET_OUTBOX_DB
+      params: {tenant: "{{env.SENTINEL_SECRET_OUTBOX_TENANT}}"}
+      query: >
+        SELECT id, event_type, idempotency_key, correlation_id, payload, occurred_at, created_at
+        FROM sentinel_outbox
+        WHERE tenant_id = %(tenant)s::uuid AND (created_at, id) > (%(cursor)s::timestamptz, %(cursor_tie)s::bigint)
+        ORDER BY created_at, id LIMIT 500
+      cursor: {field: item.created_at, initial: "1970-01-01T00:00:00+00:00", tie: item.id, tie_initial: 0}
+      emit:
+        - type: "{{item.event_type}}"
+          when: {item.event_type: {in: [order.fulfilled, order.cancelled, channel.sync_failed, channel.sync_ok]}}
+          key: "outbox:{{item.idempotency_key}}"
+          correlation: "{{item.correlation_id}}"
+          payload: "{{item.payload}}"

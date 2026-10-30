@@ -1,0 +1,157 @@
+# Template: discrete / textile manufacturing - machines, quality, materials, work orders, dispatch
+name: manufacturing
+title: Manufacturing (plant operations)
+description: >-
+  Machine downtime, quality defect spikes, material shortages against the plan, late work orders and missed
+  dispatches. Fits textile, garment and other discrete manufacturing plants.
+registry:
+  roles:
+    plant_head: Plant Head - top of the operations tree
+    production_manager: Production Manager - owns lines and work orders
+    shift_supervisor: Shift Supervisor - first line for line and machine exceptions
+    maintenance_lead: Maintenance Lead - owns machine health
+    quality_manager: Quality Manager - owns quality decisions
+    stores_manager: Stores Manager - owns materials
+    planning_manager: Planning Manager - owns plan and customer dates
+    supervisor: Operations Supervisor - triages anything the registry does not recognise
+  fingerprints:
+    - event_type: machine.downtime
+      fields: {machine: machine_id, line: line, reason: reason_code}
+      buckets:
+        duration: {field: minutes_down, edges: [15, 60], labels: ["<15m", "15-60m", ">60m"]}
+      group_by: [machine]
+    - event_type: quality.defects_high
+      fields: {line: line, product: product_code, lot: lot_no}
+      buckets:
+        rate: {field: defect_pct, edges: [2, 5], labels: [normal, elevated, high]}
+      group_by: [line, lot]
+    - event_type: material.shortage
+      fields: {material: material_code, plant: plant}
+      buckets:
+        cover: {field: days_of_cover, edges: [2, 5], labels: ["<2d", "2-5d", ">5d"]}
+      group_by: [material, plant]
+    - event_type: work_order.delayed
+      fields: {work_order: work_order_no, line: line, customer: customer_code}
+      buckets:
+        delay: {field: hours_late, edges: [8, 24], labels: ["<8h", "8-24h", ">24h"]}
+      group_by: [work_order]
+    - event_type: dispatch.missed
+      fields: {customer: customer_code, order: order_no}
+      group_by: [order]
+  patterns:
+    - id: machine_down_short
+      description: Machine stopped under an hour; open a maintenance ticket.
+      event_types: [machine.downtime]
+      match: {duration: ["<15m", "15-60m"]}
+      route: auto
+      playbook:
+        - action: create_maintenance_ticket
+          params: {machine_id: "{{payload.machine_id}}", reason: "{{payload.reason_code}}"}
+      allowed_actions: [create_maintenance_ticket]
+      disposition_codes: [ticket_raised, no_action]
+      playbook_disposition: ticket_raised
+      owner_role: shift_supervisor
+      escalation_role: maintenance_lead
+      sla_minutes: 30
+    - id: machine_down_long
+      description: Machine down over an hour; decide whether to move the work orders to another line.
+      event_types: [machine.downtime]
+      match: {duration: ">60m"}
+      route: hitl
+      max_route: llm
+      allowed_actions: [reschedule_work_order, create_maintenance_ticket]
+      disposition_codes: [rescheduled, ticket_raised, no_action]
+      owner_role: shift_supervisor
+      escalation_role: production_manager
+      sla_minutes: 30
+      severity: high
+    - id: defects_elevated
+      description: Defect rate above normal on a lot; raise an inspection.
+      event_types: [quality.defects_high]
+      match: {rate: elevated}
+      route: llm
+      playbook:
+        - action: raise_inspection
+          params: {lot_no: "{{payload.lot_no}}", line: "{{payload.line}}"}
+      allowed_actions: [raise_inspection, hold_lot]
+      disposition_codes: [inspection_raised, lot_held, no_action]
+      playbook_disposition: inspection_raised
+      owner_role: quality_manager
+      sla_minutes: 60
+      model_task: triage
+    - id: defects_high
+      description: High defect rate; hold the lot. Always a person.
+      event_types: [quality.defects_high]
+      match: {rate: high}
+      route: hitl
+      max_route: hitl
+      allowed_actions: [hold_lot, raise_inspection]
+      disposition_codes: [lot_held, inspection_raised, released]
+      owner_role: quality_manager
+      escalation_role: plant_head
+      sla_minutes: 30
+      severity: critical
+    - id: material_short
+      description: Material cover below two days against the plan; raise or expedite a purchase.
+      event_types: [material.shortage]
+      match: {cover: "<2d"}
+      route: hitl
+      max_route: llm
+      allowed_actions: [raise_purchase_request, expedite_material]
+      disposition_codes: [pr_raised, expedited, no_action]
+      owner_role: stores_manager
+      escalation_role: planning_manager
+      sla_minutes: 240
+      severity: high
+    - id: work_order_late
+      description: Work order running late; reschedule or tell the customer.
+      event_types: [work_order.delayed]
+      match: {delay: ["8-24h", ">24h"]}
+      route: hitl
+      max_route: llm
+      allowed_actions: [reschedule_work_order, notify_customer_delay]
+      disposition_codes: [rescheduled, customer_informed, no_action]
+      owner_role: production_manager
+      escalation_role: planning_manager
+      sla_minutes: 240
+    - id: dispatch_missed
+      description: A promised dispatch date was missed; inform the customer with a new date.
+      event_types: [dispatch.missed]
+      route: hitl
+      max_route: llm
+      allowed_actions: [notify_customer_delay]
+      disposition_codes: [customer_informed, dispatched, no_action]
+      owner_role: planning_manager
+      escalation_role: plant_head
+      sla_minutes: 120
+people:
+  roles:
+    plant_head: {name: Plant Head}
+    production_manager: {name: Production Manager, parent: plant_head}
+    shift_supervisor: {name: Shift Supervisor, parent: production_manager}
+    maintenance_lead: {name: Maintenance Lead, parent: plant_head}
+    quality_manager: {name: Quality Manager, parent: plant_head}
+    stores_manager: {name: Stores Manager, parent: plant_head}
+    planning_manager: {name: Planning Manager, parent: plant_head}
+    supervisor: {name: Operations Supervisor, parent: plant_head}
+  people:
+    - {id: admin, name: "Replace me: the plant head"}
+  assignments:
+    - {person_id: admin, role_id: plant_head}
+  authority:
+    - {role_id: shift_supervisor, action: create_maintenance_ticket}
+    - {role_id: shift_supervisor, action: reschedule_work_order, level: propose}
+    - {role_id: production_manager, action: reschedule_work_order}
+    - {role_id: production_manager, action: notify_customer_delay}
+    - {role_id: maintenance_lead, action: create_maintenance_ticket}
+    - {role_id: quality_manager, action: raise_inspection}
+    - {role_id: quality_manager, action: hold_lot}
+    - {role_id: stores_manager, action: raise_purchase_request}
+    - {role_id: stores_manager, action: expedite_material, level: propose}
+    - {role_id: planning_manager, action: expedite_material}
+    - {role_id: planning_manager, action: notify_customer_delay}
+    - {role_id: production_manager, action: __kill_switch__}
+    - {role_id: plant_head, action: __promote__}
+    - {role_id: plant_head, action: __set_route__}
+    - {role_id: plant_head, action: __reverse__}
+    - {role_id: plant_head, action: __configure__}

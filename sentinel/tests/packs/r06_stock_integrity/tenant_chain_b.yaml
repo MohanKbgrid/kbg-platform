@@ -1,0 +1,11 @@
+# Tenant B: a different org for the same template. Different role names, no loss-prevention team:
+# the branch head owns shrink too. Only the bindings differ; the template is untouched.
+layer: chain_b
+roles:
+  branch_head: Branch head
+  area_manager: Area manager
+  coo: Chief operating officer
+slot_bindings:
+  accountable: branch_head
+  shrink_owner: branch_head
+  escalation: area_manager

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../schemas/connectors.schema.json
+# Data sources and lookup tools. Normally edited in the console (Data sources & tools); this file shows the
+# format. Secrets are referenced as {{env.NAME}} and live in .env, never here.
+sources:
+  shopify_orders:                                   # POST https://<site>/v1/hooks/shopify_orders
+    kind: webhook
+    signature: {header: X-Shopify-Hmac-Sha256, secret_env: SENTINEL_SECRET_SHOPIFY_WEBHOOK, encoding: base64}
+    emit:
+      - type: order.unfulfilled
+        when: {body.financial_status: paid, body.fulfillment_status: {exists: false}}
+        key: "shopify:{{body.id}}:{{body.updated_at}}"
+        payload:
+          order_id: "{{body.name}}"
+          channel: shopify
+          location: "{{body.location_id|default:WH_CHN}}"
+          hours_since_paid: "{{body.processed_at|hours_since}}"
+  wms_stock:                                        # fetched every 5 minutes by the workers
+    kind: poll
+    every_s: 300
+    url: "https://wms.example.in/api/stock?changed_since={{cursor}}"
+    headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_TOKEN}}"}
+    items: body.rows
+    cursor: {field: item.updated_at, initial: "2026-01-01T00:00:00Z"}
+    emit:
+      - type: inventory.mismatch
+        when: {item.delta: {ne: 0}}
+        key: "wms:{{item.sku}}:{{item.location}}:{{item.updated_at}}"
+        payload: {sku: "{{item.sku}}", location: "{{item.location}}", channel: shopify,
+                  wms_qty: "{{item.wms_qty|int}}", channel_qty: "{{item.channel_qty|int}}",
+                  abs_delta: "{{item.delta|abs}}"}
+mcp:
+  wms:
+    transport: http
+    url: "https://wms.example.in/mcp"
+    headers: {Authorization: "Bearer {{env.SENTINEL_SECRET_WMS_MCP_TOKEN}}"}
+    tools: [get_stock, get_order]                   # only these, and only if they do not change data

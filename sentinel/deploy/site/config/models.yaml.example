@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../schemas/models.schema.json
+# Copy to models.yaml and set SENTINEL_MODELS=/config/models.yaml in .env.
+models:
+  local:                                   # the office Mac mini, through `sentinel gateway`
+    provider: ollama
+    model: "qwen2.5:7b-instruct"
+    base_url: "http://macmini.your-tailnet.ts.net:8090"
+    api_key_env: SENTINEL_GATEWAY_KEY
+    timeout_s: 60
+  local-embed:                             # embeddings for similar-case search, same Mac mini
+    provider: ollama
+    model: nomic-embed-text
+    base_url: "http://macmini.your-tailnet.ts.net:8090"
+    api_key_env: SENTINEL_GATEWAY_KEY
+  claude:
+    provider: anthropic                    # reads ANTHROPIC_API_KEY
+    model: claude-sonnet-5-5
+routes:
+  triage: {model: local, fallback: claude, cooldown_s: 60}   # patterns with model_task: triage
+  diagnose: claude                                           # everything else
+default: diagnose
+escalate: {triage: claude}                 # re-ask Claude when the small model is unsure or unusable
+escalate_below: 0.75
+candidates: {diagnose: local}              # shadow-test the small model on Claude's cases
+embedder: local-embed                      # or {provider: hashing} in models for a no-model lexical fallback
+prices:                                    # per 1k tokens (in, out), for cost reports; check current prices
+  claude-sonnet-5-5: [0.003, 0.015]

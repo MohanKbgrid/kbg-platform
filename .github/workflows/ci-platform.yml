@@ -1,0 +1,41 @@
+name: ci-platform
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["sentinel/**", "docs/**", "**/*.md"]
+  pull_request:
+    paths-ignore: ["sentinel/**", "docs/**", "**/*.md"]
+permissions: { contents: read }
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pytest build setuptools wheel
+      - name: licence files and SPDX headers
+        run: python tools/licence_check.py
+      - name: tool tests
+        run: python -m pytest -q tests
+      - name: bases/core tests
+        working-directory: bases/core
+        run: python test_core.py
+      - name: bases/core installs and imports from the installed copy
+        run: python bases/core/verify_consumable.py
+      - name: conformance kit self-test
+        run: |
+          if [ -f gates/__main__.py ]; then python -m gates --selftest; else echo "gate kit not present yet"; fi
+
+  ui-kit:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: bases/ui-kit } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run verify

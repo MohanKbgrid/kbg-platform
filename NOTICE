@@ -1,0 +1,16 @@
+KBG Platform and Sentinel
+Copyright 2026 KB Grid
+
+This product includes software and specifications developed by KB Grid
+(https://github.com/MohanKbgrid/kbg-platform).
+
+- Source code is licensed under the Apache License, Version 2.0 (see LICENSE).
+  Apache-2.0 section 4(d) requires that this NOTICE file is kept in any
+  redistribution, in the NOTICE text of any derivative work, or in its
+  documentation.
+- The canon and documentation (canon/, docs/) are licensed under Creative
+  Commons Attribution 4.0 International (see LICENSE-docs). Please credit
+  "KB Grid" when you reuse or adapt that text.
+
+If you build a product on this work, a "Built on KBG Platform" line in your
+README or about page is appreciated. It is a courtesy, not a condition.

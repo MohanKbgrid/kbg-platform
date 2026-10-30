@@ -1,0 +1,19 @@
+# Connector template: WhatsApp review cards through Gupshup (no Meta app needed). Check against your account.
+name: gupshup
+title: WhatsApp via Gupshup
+description: >
+  Review cards on WhatsApp with Approve / Close buttons, sent through Gupshup. Set the callback URL in the
+  Gupshup app to https://<server>/v1/wa/wa_gupshup?token=<the inbound token>. Give people a contact.whatsapp
+  number and wa_gupshup in their edges.
+settings:
+  SENTINEL_SECRET_GUPSHUP_KEY: the Gupshup API key (Gupshup dashboard > Profile)
+  SENTINEL_SECRET_GUPSHUP_INBOUND: a long random token you choose; put the same value in the callback URL
+events: []
+connectors:
+  edges:
+    wa_gupshup:
+      kind: gupshup
+      source: "91XXXXXXXXXX"             # the business WhatsApp number registered with Gupshup
+      app_name: YourGupshupApp           # the Gupshup app name
+      api_key_env: SENTINEL_SECRET_GUPSHUP_KEY
+      inbound_token_env: SENTINEL_SECRET_GUPSHUP_INBOUND

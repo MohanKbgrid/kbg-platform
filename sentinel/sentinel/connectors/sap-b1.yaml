@@ -1,0 +1,63 @@
+# Connector template: SAP Business One Service Layer (OData v4, /b1s/v2). Check names against your version.
+name: sap-b1
+title: SAP Business One (Service Layer)
+description: >
+  Polls open sales orders into overdue-order exceptions; lookups read a business partner's balance and an
+  item's stock by warehouse; the action closes a sales order, with Reopen as its undo.
+  For SAP ECC (no Service Layer), read the tables through an outbox or a read-only database view with a
+  sql source instead, or use the sap-gateway template if SAP Gateway OData services are switched on.
+settings:
+  SENTINEL_SECRET_SAPB1_URL: Service Layer base URL, e.g. https://sap.example.in:50000
+  SENTINEL_SECRET_SAPB1_COMPANY: company database, e.g. SBODEMOIN
+  SENTINEL_SECRET_SAPB1_USER: a Service Layer user with read access (and Close/Reopen on orders, if used)
+  SENTINEL_SECRET_SAPB1_PASSWORD: that user's password
+events: [sales_order.open]
+fingerprints:
+  - {event_type: sales_order.open, fields: {order: doc_num}}
+connectors:
+  auth:
+    sapb1:
+      url: "{{env.SENTINEL_SECRET_SAPB1_URL}}/b1s/v2/Login"
+      body: {CompanyDB: "{{env.SENTINEL_SECRET_SAPB1_COMPANY}}", UserName: "{{env.SENTINEL_SECRET_SAPB1_USER}}",
+             Password: "{{env.SENTINEL_SECRET_SAPB1_PASSWORD}}"}
+      token: body.SessionId
+      ttl_s: 1500                         # sessions time out after 30 minutes by default
+  sources:
+    sapb1_open_orders:
+      kind: poll
+      every_s: 900
+      description: Open sales orders in SAP Business One
+      url: "{{env.SENTINEL_SECRET_SAPB1_URL}}/b1s/v2/Orders?$select=DocEntry,DocNum,CardCode,CardName,DocDueDate,DocTotal,UpdateDate&$filter=DocumentStatus%20eq%20%27bost_Open%27&$orderby=DocDueDate"
+      headers: {Cookie: "B1SESSION={{auth.sapb1}}", Prefer: "odata.maxpagesize=200"}
+      items: body.value
+      emit:
+        - type: sales_order.open
+          key: "sapb1:{{item.DocEntry}}:{{item.UpdateDate}}"
+          payload: {doc_entry: "{{item.DocEntry}}", doc_num: "{{item.DocNum}}", customer_code: "{{item.CardCode}}",
+                    customer_name: "{{item.CardName}}", due_date: "{{item.DocDueDate}}", total: "{{item.DocTotal}}",
+                    hours_past_due: "{{item.DocDueDate|hours_since|round:0}}", system: sap_b1}
+  lookups:
+    sapb1.business_partner:
+      description: A customer's or vendor's balance, credit limit and payment terms
+      params: {card_code: str}
+      request: {method: GET, url: "{{env.SENTINEL_SECRET_SAPB1_URL}}/b1s/v2/BusinessPartners('{{params.card_code}}')?$select=CardCode,CardName,CurrentAccountBalance,CreditLimit,PayTermsGrpCode,Frozen",
+                headers: {Cookie: "B1SESSION={{auth.sapb1}}"}}
+    sapb1.item_stock:
+      description: An item's stock in each warehouse
+      params: {item_code: str}
+      request: {method: GET, url: "{{env.SENTINEL_SECRET_SAPB1_URL}}/b1s/v2/Items('{{params.item_code}}')?$select=ItemCode,ItemName,QuantityOnStock,ItemWarehouseInfoCollection",
+                headers: {Cookie: "B1SESSION={{auth.sapb1}}"}}
+  actions:
+    sapb1.close_sales_order:
+      description: Close an open sales order (undone by reopening it)
+      params: {doc_entry: int}
+      request:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_SAPB1_URL}}/b1s/v2/Orders({{params.doc_entry}})/Close"
+        headers: {Cookie: "B1SESSION={{auth.sapb1}}"}
+      compensate:
+        method: POST
+        url: "{{env.SENTINEL_SECRET_SAPB1_URL}}/b1s/v2/Orders({{params.doc_entry}})/Reopen"
+        headers: {Cookie: "B1SESSION={{auth.sapb1}}"}
+      ok_status: [204]
+      idempotency_header: null

@@ -1,0 +1,1535 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kbg-platform.example/schemas/template.schema.json",
+  "title": "Sentinel domain template",
+  "description": "A domain template (sentinel/templates/*.yaml): a starting registry and people tree.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "registry": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name (defaults to the file stem)."
+        },
+        "template": {
+          "type": "string",
+          "description": "Start from a built-in domain template."
+        },
+        "version": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "overlay": {
+          "description": "Name of the overlay (code) this registry expects."
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "role id -> what the role is."
+        },
+        "slots": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Role slots the templates name: slot -> what it is for."
+        },
+        "slot_bindings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "slot -> the tenant's role for it."
+        },
+        "defaults": {
+          "$ref": "#/$defs/CaseDefaults"
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Capability"
+          }
+        },
+        "fingerprints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FingerprintRule"
+          }
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pattern"
+          }
+        },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "set": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "disable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "people": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "roles": {
+          "description": "role id -> {name, parent, description} or a description string; or a list of roles.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RoleKeyed"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Role"
+              }
+            }
+          ]
+        },
+        "people": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Person"
+          }
+        },
+        "assignments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assignment"
+          }
+        },
+        "authority": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuthorityRule"
+          }
+        },
+        "unattended": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnattendedRule"
+          }
+        },
+        "config_approval": {
+          "$ref": "#/$defs/ConfigApproval"
+        },
+        "value": {
+          "$ref": "#/$defs/ValueSettings"
+        },
+        "scim": {
+          "$ref": "#/$defs/ScimSettings"
+        },
+        "scopes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ScopeDimension"
+          }
+        },
+        "stop_at": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vacancy": {
+          "type": "string"
+        },
+        "sod": {
+          "description": "Segregation-of-duties pairs."
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AgentPolicy"
+          }
+        },
+        "oversight": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OversightRule"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "registry"
+  ],
+  "$defs": {
+    "AgentPolicy": {
+      "description": "How far an agent (a template run in a scope) may go (ADR-003 C1). Most specific row wins: a pattern id\nbeats its capability, which beats \"*\"; then the row with more scope keys.\n\n  OFF      the template takes no cases in that scope (events go to people as unmatched)\n  OBSERVE  shadow: it proposes, a person decides everything\n  PROPOSE  a person approves each proposal (never unattended)\n  ACT      acts on its own up to the route it has earned, inside the pattern's ceiling and the limits\n\n``grants`` name what it may touch unattended: VIEW or EDIT per action (or object). With grants set, an\nunattended step on an action without EDIT goes to a person. APPROVE is never grantable to an agent.",
+      "properties": {
+        "template": {
+          "default": "*",
+          "title": "Template",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "grants": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Grants",
+          "type": "object"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid From"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "AgentPolicy",
+      "type": "object"
+    },
+    "Assignment": {
+      "properties": {
+        "person_id": {
+          "title": "Person Id",
+          "type": "string"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid From"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "person_id",
+        "role_id"
+      ],
+      "title": "Assignment",
+      "type": "object"
+    },
+    "AuthorityRule": {
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "level": {
+          "default": "approve",
+          "title": "Level",
+          "type": "string"
+        },
+        "patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
+        "max_amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Amount"
+        },
+        "amount_param": {
+          "default": "amount",
+          "title": "Amount Param",
+          "type": "string"
+        },
+        "inherit": {
+          "default": true,
+          "title": "Inherit",
+          "type": "boolean"
+        },
+        "needs_proposal": {
+          "default": false,
+          "title": "Needs Proposal",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role_id",
+        "action"
+      ],
+      "title": "AuthorityRule",
+      "type": "object"
+    },
+    "Bucket": {
+      "description": "Turn a number into a label, e.g. age_hours -> '>24h'.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "edges": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "edges",
+        "labels"
+      ],
+      "title": "Bucket",
+      "type": "object"
+    },
+    "Capability": {
+      "additionalProperties": false,
+      "description": "A business capability (Inventory & Replenishment, Finance & MIS): what the business does, who is\naccountable, what it must never do, and how its results are measured. Exceptions belong to one; the\ncapability caps how far they may be automated and can be switched to observe only (instrumented and\nmeasured, nothing acted on without a person) while the business decides whether to deploy it.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "intent": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Intent",
+          "type": "array"
+        },
+        "outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Outcomes",
+          "type": "array"
+        },
+        "max_route": {
+          "$ref": "#/$defs/Route",
+          "default": "auto"
+        },
+        "mode": {
+          "default": "act",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "Capability",
+      "type": "object"
+    },
+    "CaseDefaults": {
+      "additionalProperties": false,
+      "description": "The registry's ``defaults:`` - for every exception that does not set its own.",
+      "properties": {
+        "escalation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EscalationRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expires_after_hours": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires After Hours"
+        },
+        "pause_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pause On",
+          "type": "array"
+        },
+        "digest_hour": {
+          "default": 9,
+          "maximum": 23,
+          "minimum": 0,
+          "title": "Digest Hour",
+          "type": "integer"
+        },
+        "timezone": {
+          "default": "UTC",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "data_trust": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataTrust"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CaseDefaults",
+      "type": "object"
+    },
+    "ClearEvent": {
+      "additionalProperties": false,
+      "description": "An event that says the problem is gone (an order fulfilled, a location back up).",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "same": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Same",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "same"
+      ],
+      "title": "ClearEvent",
+      "type": "object"
+    },
+    "ClearLookup": {
+      "additionalProperties": false,
+      "description": "A read-only lookup asked on a schedule while the case is open; the case closes when it holds.",
+      "properties": {
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "condition": {
+          "additionalProperties": true,
+          "title": "Condition",
+          "type": "object"
+        },
+        "every_minutes": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Every Minutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tool",
+        "condition"
+      ],
+      "title": "ClearLookup",
+      "type": "object"
+    },
+    "ClearWhen": {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/ClearEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClearLookup"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ClearWhen",
+      "type": "object"
+    },
+    "ConfigApproval": {
+      "description": "Maker-checker for configuration: a version is published only after ``approvals`` people who hold\n__configure__, other than its author, have approved it.",
+      "properties": {
+        "approvals": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Approvals",
+          "type": "integer"
+        },
+        "kinds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kinds",
+          "type": "array"
+        }
+      },
+      "title": "ConfigApproval",
+      "type": "object"
+    },
+    "DataTrust": {
+      "additionalProperties": false,
+      "description": "Data trust caps autonomy per scope (Layer A -> B). A scope's score (0..1, e.g. a store's record accuracy,\nreceiving lag, unit errors) is set by monitoring; below ``act_min`` agents there only PROPOSE, below\n``propose_min`` they only OBSERVE, whatever trust their templates earned elsewhere. Scores older than\n``max_age_hours`` count as unknown; ``unknown`` says what an unknown score means (none: no cap).",
+      "properties": {
+        "act_min": {
+          "default": 0.95,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Act Min",
+          "type": "number"
+        },
+        "propose_min": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Propose Min",
+          "type": "number"
+        },
+        "max_age_hours": {
+          "default": 48,
+          "exclusiveMinimum": 0,
+          "title": "Max Age Hours",
+          "type": "number"
+        },
+        "unknown": {
+          "default": "none",
+          "title": "Unknown",
+          "type": "string"
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sources"
+        }
+      },
+      "title": "DataTrust",
+      "type": "object"
+    },
+    "EscalationRule": {
+      "additionalProperties": false,
+      "description": "How often an unanswered review is sent again once it has reached the top of the role tree.",
+      "properties": {
+        "repeat": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repeat"
+        },
+        "stop_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop At"
+        }
+      },
+      "title": "EscalationRule",
+      "type": "object"
+    },
+    "FingerprintRule": {
+      "properties": {
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "buckets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Bucket"
+          },
+          "title": "Buckets",
+          "type": "object"
+        },
+        "group_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Group By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "event_type"
+      ],
+      "title": "FingerprintRule",
+      "type": "object"
+    },
+    "OversightRule": {
+      "description": "Who oversees which agents (Layer D). The role must own none of them: it is not a template's owner or\nescalation role, nor above one on the solid line (ADR-003 invariant 5).",
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "templates": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Templates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "OversightRule",
+      "type": "object"
+    },
+    "Pattern": {
+      "description": "A registry entry: what an incident type is and how it may be resolved.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array"
+        },
+        "match": {
+          "additionalProperties": true,
+          "title": "Match",
+          "type": "object"
+        },
+        "route": {
+          "$ref": "#/$defs/Route",
+          "default": "hitl"
+        },
+        "max_route": {
+          "$ref": "#/$defs/Route",
+          "default": "auto"
+        },
+        "playbook": {
+          "items": {
+            "$ref": "#/$defs/PlaybookStep"
+          },
+          "title": "Playbook",
+          "type": "array"
+        },
+        "allowed_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Actions",
+          "type": "array"
+        },
+        "disposition_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Disposition Codes",
+          "type": "array"
+        },
+        "owner_role": {
+          "default": "operator",
+          "title": "Owner Role",
+          "type": "string"
+        },
+        "escalation_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escalation Role"
+        },
+        "owner_slot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Slot"
+        },
+        "escalation_slot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escalation Slot"
+        },
+        "sla_minutes": {
+          "default": 240,
+          "title": "Sla Minutes",
+          "type": "integer"
+        },
+        "severity": {
+          "default": "medium",
+          "title": "Severity",
+          "type": "string"
+        },
+        "llm_min_confidence": {
+          "default": 0.8,
+          "title": "Llm Min Confidence",
+          "type": "number"
+        },
+        "group_window_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Window Minutes"
+        },
+        "inhibited_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inhibited By",
+          "type": "array"
+        },
+        "inhibit_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inhibit On",
+          "type": "array"
+        },
+        "playbook_disposition": {
+          "default": "resolved",
+          "title": "Playbook Disposition",
+          "type": "string"
+        },
+        "llm_instructions": {
+          "default": "",
+          "title": "Llm Instructions",
+          "type": "string"
+        },
+        "model_task": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Task"
+        },
+        "sop": {
+          "default": "",
+          "title": "Sop",
+          "type": "string"
+        },
+        "brief_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Brief Fields",
+          "type": "array"
+        },
+        "trust_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Trust By",
+          "type": "array"
+        },
+        "trust_pool_min": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trust Pool Min"
+        },
+        "digest_above": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest Above"
+        },
+        "digest_every_minutes": {
+          "default": 60,
+          "minimum": 5,
+          "title": "Digest Every Minutes",
+          "type": "integer"
+        },
+        "money_fact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Money Fact"
+        },
+        "data_trust_exempt": {
+          "default": false,
+          "title": "Data Trust Exempt",
+          "type": "boolean"
+        },
+        "spot_check_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spot Check Rate"
+        },
+        "claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "claim_minutes": {
+          "default": 60,
+          "minimum": 1,
+          "title": "Claim Minutes",
+          "type": "integer"
+        },
+        "llm_max_steps": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Llm Max Steps",
+          "type": "integer"
+        },
+        "diagnose": {
+          "default": true,
+          "title": "Diagnose",
+          "type": "boolean"
+        },
+        "shadow": {
+          "default": false,
+          "title": "Shadow",
+          "type": "boolean"
+        },
+        "effort_minutes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort Minutes"
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "outcome_check": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome Check"
+        },
+        "escalation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EscalationRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clear_when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClearWhen"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expires_after_hours": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires After Hours"
+        },
+        "pause_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pause On",
+          "type": "array"
+        },
+        "capability": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "layer": {
+          "default": "",
+          "title": "Layer",
+          "type": "string"
+        },
+        "overridden_in": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Overridden In",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "event_types"
+      ],
+      "title": "Pattern",
+      "type": "object"
+    },
+    "Person": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "contact": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Contact",
+          "type": "object"
+        },
+        "edges": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "active": {
+          "default": true,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "language": {
+          "default": "",
+          "title": "Language",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Person",
+      "type": "object"
+    },
+    "PlaybookStep": {
+      "description": "One step of a playbook (or of a proposal, where only action steps appear).\n\naction  do something (params may be templates)       lookup  read-only tool; result kept under `as`\nclose   finish with no action (with `disposition`)   when    the step runs only if this holds",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lookup"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "as": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As"
+        },
+        "close": {
+          "default": false,
+          "title": "Close",
+          "type": "boolean"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "disposition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disposition"
+        }
+      },
+      "title": "PlaybookStep",
+      "type": "object"
+    },
+    "Role": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "dotted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dotted",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Role",
+      "type": "object"
+    },
+    "RoleKeyed": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "dotted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dotted",
+          "type": "array"
+        }
+      },
+      "title": "Role",
+      "type": "object"
+    },
+    "Route": {
+      "description": "How an incident gets resolved. Ordered from least to most autonomous.",
+      "enum": [
+        "hitl",
+        "llm",
+        "auto"
+      ],
+      "title": "Route",
+      "type": "string"
+    },
+    "ScimGrant": {
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "ScimGrant",
+      "type": "object"
+    },
+    "ScimSettings": {
+      "description": "Provisioning from the company directory (Entra ID, Okta, Google): which roles each group gives.",
+      "properties": {
+        "group_roles": {
+          "additionalProperties": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ScimGrant"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "title": "Group Roles",
+          "type": "object"
+        },
+        "default_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Default Roles",
+          "type": "array"
+        }
+      },
+      "title": "ScimSettings",
+      "type": "object"
+    },
+    "ScopeDimension": {
+      "description": "A fact whose values roll up. ``parents`` maps a value to the value above it: in the same dimension\n(a category tree: rice -> staples -> grocery) or, with ``rolls_up_to``, in another dimension\n(store TVM01 -> region south). An assignment scoped to a value covers every value below it.",
+      "properties": {
+        "parents": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "object"
+        },
+        "rolls_up_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rolls Up To"
+        }
+      },
+      "title": "ScopeDimension",
+      "type": "object"
+    },
+    "UnattendedRule": {
+      "description": "How far an automatic playbook (`auto`) or the model (`llm`) may go on its own, per action.\n\n    unattended:\n      - {resolver: \"*\", action: post_salesman_shortage, max_amount: 2000}\n      - {resolver: llm, action: refund_payment, max_amount: 500, patterns: [refund_small]}\n\nWithout a rule for an action, the lowest amount limit any person has for it applies, so a playbook or\nthe model never does on its own more than the most junior approver could.",
+      "properties": {
+        "resolver": {
+          "default": "*",
+          "title": "Resolver",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
+        "max_amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Amount"
+        },
+        "amount_param": {
+          "default": "amount",
+          "title": "Amount Param",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "UnattendedRule",
+      "type": "object"
+    },
+    "ValueSettings": {
+      "description": "What an hour of people's time costs, for the value report (money saved by automatic resolutions).",
+      "properties": {
+        "currency": {
+          "default": "INR",
+          "title": "Currency",
+          "type": "string"
+        },
+        "hourly_cost": {
+          "default": 400.0,
+          "minimum": 0,
+          "title": "Hourly Cost",
+          "type": "number"
+        },
+        "default_minutes": {
+          "default": 8.0,
+          "exclusiveMinimum": 0,
+          "title": "Default Minutes",
+          "type": "number"
+        },
+        "model_cost_rate": {
+          "default": 84.0,
+          "exclusiveMinimum": 0,
+          "title": "Model Cost Rate",
+          "type": "number"
+        }
+      },
+      "title": "ValueSettings",
+      "type": "object"
+    }
+  }
+}
