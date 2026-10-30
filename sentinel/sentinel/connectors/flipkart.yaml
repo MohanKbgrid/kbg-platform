@@ -1,0 +1,56 @@
+# Connector template: Flipkart Marketplace Seller API v3. Check against the seller account.
+name: flipkart
+title: Flipkart (Seller API)
+description: >
+  Polls shipments waiting to be packed or dispatched into order.unfulfilled, with the dispatch-by date;
+  a lookup reads a shipment; the action updates a listing's stock at a Flipkart location.
+settings:
+  SENTINEL_SECRET_FLIPKART_BASIC: base64 of "<application id>:<application secret>" from the Seller API dashboard
+events: [order.unfulfilled]
+fingerprints:
+  - {event_type: order.unfulfilled, fields: {channel: channel, location: location, stock: stock_status, order: order_id},
+     buckets: {age: {field: hours_since_paid, edges: [24, 48], labels: ["<24h", "24-48h", ">48h"]}}, group_by: [order]}
+connectors:
+  auth:
+    flipkart:
+      url: https://api.flipkart.net/oauth-service/oauth/token?grant_type=client_credentials&scope=Seller_Api
+      method: GET
+      headers: {Authorization: "Basic {{env.SENTINEL_SECRET_FLIPKART_BASIC}}"}
+      token: body.access_token
+      ttl_from: body.expires_in
+  sources:
+    flipkart_pre_dispatch:
+      kind: poll
+      every_s: 900
+      method: POST
+      description: Flipkart shipments not yet dispatched
+      url: https://api.flipkart.net/sellers/v3/shipments/filter
+      headers: {Authorization: "Bearer {{auth.flipkart}}"}
+      body: {filter: {type: preDispatch, states: [APPROVED, PACKING_IN_PROGRESS, PACKED, FORM_FAILED, READY_TO_DISPATCH]},
+             pagination: {pageSize: 20}}
+      items: body.shipments
+      emit:
+        - type: order.unfulfilled
+          each: item.orderItems
+          key: "flipkart:{{item.orderItemId}}:{{item.status}}"
+          payload: {order_id: "{{item.orderId}}", order_item_id: "{{item.orderItemId}}", channel: flipkart,
+                    location: WH_CHN, stock_status: unknown,
+                    hours_since_paid: "{{item.orderDate|hours_since|round:1}}", sku: "{{item.sku}}",
+                    dispatch_by: "{{item.dispatchByDate}}", state: "{{item.status}}", system: flipkart}
+  lookups:
+    flipkart.shipment:
+      description: A Flipkart shipment with its items, state and dispatch dates
+      params: {shipment_id: str}
+      request: {method: GET, url: "https://api.flipkart.net/sellers/v3/shipments/{{params.shipment_id}}",
+                headers: {Authorization: "Bearer {{auth.flipkart}}"}}
+  actions:
+    flipkart.update_stock:
+      description: >-
+        Set listing stock. stock = {"<sku>": {"product_id": "...", "locations": [{"id": "<location id>",
+        "inventory": 12}]}} (Flipkart keys the request by SKU)
+      params: {stock: dict}
+      request:
+        method: POST
+        url: https://api.flipkart.net/sellers/listings/v3/update/inventory
+        headers: {Authorization: "Bearer {{auth.flipkart}}"}
+        body: "{{params.stock}}"

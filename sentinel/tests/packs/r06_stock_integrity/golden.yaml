@@ -1,0 +1,28 @@
+# Golden cases for R06 (sentinel.testing.run_golden): what each signal becomes, in OBSERVE.
+- name: sales stopped with book stock is a phantom-stock case with a shelf check proposed
+  event: {type: inv.sales_stopped, payload: {store: TVM01, article: A100, book_qty: 14}}
+  expect: {pattern: r06_phantom_stock, actions: [task.shelf_check]}
+- name: sales stopped with no book stock is not phantom stock
+  event: {type: inv.sales_stopped, payload: {store: TVM01, article: A101, book_qty: 0}}
+  expect: {pattern: __unmatched__}
+- name: stock falling without sales asks for a count
+  event: {type: inv.depletion_without_sales, payload: {store: TVM02, article: A200, units: 9}}
+  expect: {pattern: r06_unrecorded_loss, actions: [task.count]}
+- name: exact pack factor is a UOM error
+  event: {type: inv.qty_factor_mismatch, payload: {store: TVM01, article: A300, factor: 12}}
+  expect: {pattern: r06_uom_error}
+- name: a non-pack factor is not a UOM error
+  event: {type: inv.qty_factor_mismatch, payload: {store: TVM01, article: A300, factor: 7}}
+  expect: {pattern: __unmatched__}
+- name: short-dated receipt
+  event: {type: inv.short_dated_receipt, payload: {store: TVM01, article: A400, vendor: V9, life_left_pct: 30}}
+  expect: {pattern: r06_short_dated_receipt}
+- name: FEFO breach asks for a rotation
+  event: {type: inv.fefo_breach, payload: {store: TVM02, article: A500}}
+  expect: {pattern: r06_fefo_breach, actions: [task.shelf_check]}
+- name: selling below zero is receiving lag
+  event: {type: inv.selling_below_zero, payload: {store: TVM02, article: A600}}
+  expect: {pattern: r06_receiving_lag}
+- name: daily triangle gap above tolerance
+  event: {type: recon.triangle_gap, payload: {store: TVM01, gap_pct: 2.4, business_date: "2026-10-19"}}
+  expect: {pattern: r06_daily_triangle_gap}

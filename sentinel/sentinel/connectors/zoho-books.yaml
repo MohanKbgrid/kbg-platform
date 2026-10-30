@@ -1,0 +1,134 @@
+# Connector template: Zoho Books (India data centre: zohoapis.in / accounts.zoho.in). API v3.
+name: zoho-books
+title: Zoho Books
+description: >
+  Polls overdue invoices into receivable exceptions; lookups read an invoice and a customer's balance;
+  the action sends Zoho's payment reminder email (customer-facing, so a person approves it).
+  Its datasets give the standard finance columns (bank_lines, cash_position, invoices) for KPIs and data
+  checks. For another data centre, change .in to .com / .eu in every URL.
+settings:
+  SENTINEL_SECRET_ZOHO_CLIENT_ID: client id of a Self Client (api-console.zoho.in)
+  SENTINEL_SECRET_ZOHO_CLIENT_SECRET: its client secret
+  SENTINEL_SECRET_ZOHO_REFRESH_TOKEN: a refresh token with scope ZohoBooks.invoices.ALL,ZohoBooks.contacts.READ,ZohoBooks.banking.READ
+  SENTINEL_SECRET_ZOHO_ORG_ID: the organisation id (Settings > Organisation profile)
+events: [invoice.overdue]
+fingerprints:
+  - {event_type: invoice.overdue, fields: {invoice: invoice_id}}
+connectors:
+  auth:
+    zoho:
+      url: "https://accounts.zoho.in/oauth/v2/token?refresh_token={{env.SENTINEL_SECRET_ZOHO_REFRESH_TOKEN}}&client_id={{env.SENTINEL_SECRET_ZOHO_CLIENT_ID}}&client_secret={{env.SENTINEL_SECRET_ZOHO_CLIENT_SECRET}}&grant_type=refresh_token"
+      token: body.access_token
+      ttl_from: body.expires_in           # an hour
+  sources:
+    zoho_overdue_invoices:
+      kind: poll
+      every_s: 3600
+      description: Overdue invoices in Zoho Books
+      url: "https://www.zohoapis.in/books/v3/invoices?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}&status=overdue&per_page=200&sort_column=due_date"
+      headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}
+      items: body.invoices
+      emit:
+        - type: invoice.overdue
+          key: "zoho:{{item.invoice_id}}:{{item.due_date}}:{{item.balance}}"
+          payload: {invoice_id: "{{item.invoice_id}}", invoice_number: "{{item.invoice_number}}",
+                    customer_id: "{{item.customer_id}}", customer_name: "{{item.customer_name}}",
+                    balance: "{{item.balance}}", total: "{{item.total}}", due_date: "{{item.due_date}}",
+                    hours_overdue: "{{item.due_date|hours_since|round:0}}", system: zoho_books}
+  lookups:
+    zoho.invoice:
+      description: A Zoho Books invoice with its lines, payments and reminders sent
+      params: {invoice_id: str}
+      request: {method: GET, url: "https://www.zohoapis.in/books/v3/invoices/{{params.invoice_id}}?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}",
+                headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}}
+      result: body.invoice
+    zoho.customer:
+      description: A customer's outstanding receivable, credit limit and payment terms
+      params: {customer_id: str}
+      request: {method: GET, url: "https://www.zohoapis.in/books/v3/contacts/{{params.customer_id}}?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}",
+                headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}}
+      result: body.contact
+    zoho.bank_transactions:
+      description: Bank and card transactions with their status (uncategorized, categorized, matched ...), a page at a time
+      params: {page: int, since: str}
+      request: {method: GET, url: "https://www.zohoapis.in/books/v3/banktransactions?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}&per_page=200&page={{params.page}}&date_start={{params.since}}",
+                headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}}
+      result: body.banktransactions
+      max_chars: 50000
+    zoho.bank_accounts:
+      description: Bank and card accounts with their current balances
+      params: {}
+      request: {method: GET, url: "https://www.zohoapis.in/books/v3/bankaccounts?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}",
+                headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}}
+      result: body.bankaccounts
+    zoho.invoices:
+      description: Invoices since a date, a page at a time
+      params: {page: int, since: str}
+      request: {method: GET, url: "https://www.zohoapis.in/books/v3/invoices?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}&per_page=200&page={{params.page}}&date_start={{params.since}}",
+                headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}}
+      result: body.invoices
+      max_chars: 50000
+  actions:
+    zoho.send_payment_reminder:
+      description: Email Zoho's payment reminder for an invoice to the customer. Cannot be undone.
+      params: {invoice_id: str}
+      request:
+        method: POST
+        url: "https://www.zohoapis.in/books/v3/invoices/{{params.invoice_id}}/paymentreminder?organization_id={{env.SENTINEL_SECRET_ZOHO_ORG_ID}}"
+        headers: {Authorization: "Zoho-oauthtoken {{auth.zoho}}"}
+      ok_when: {body.code: 0}
+# Standard finance datasets (kind: lookup) for metrics: the same columns whatever the books are kept in.
+# A business's own configuration adds the owner role and, for cash_position, vars.monthly_burn.
+datasets:
+  bank_lines:
+    kind: lookup
+    lookup: zoho.bank_transactions
+    description: Zoho Books bank transactions; matched = categorized or matched in Zoho
+    refresh_minutes: 60
+    args: {page: "{{page}}", since: "{{now|days_before:60|strftime:%Y-%m-%d}}"}
+    pages: {size: 200, max: 25}
+    columns:
+      line_id: "{{item.transaction_id}}"
+      account: "{{item.account_name|default:Bank}}"
+      booked_at: "{{item.date}}"
+      direction: "{{item.debit_or_credit|lower}}"
+      amount: "{{item.amount|float}}"
+      utr: "{{item.reference_number}}"
+      matched: "{{item.status|in:categorized,matched,manually_added}}"
+      voucher: "{{item.offset_account_name}}"
+      age_hours: "{{item.date|hours_since}}"
+    where: {item.status: {not_in: [excluded]}}
+    checks: {fresh: booked_at, max_age_hours: 96, unique: [line_id], not_null: [amount]}
+  cash_position:
+    kind: lookup
+    lookup: zoho.bank_accounts
+    description: Zoho Books account balances now, and the monthly burn (vars.monthly_burn) as its own row
+    refresh_minutes: 360
+    columns:
+      as_of: "{{now}}"
+      account: "{{item.account_name}}"
+      balance: "{{item.balance|float}}"
+      burn_share: 0
+    where: {item.account_type: {in: [bank, cash]}}
+    vars: {monthly_burn: 0}
+    append: [{as_of: "{{now}}", account: monthly_burn, balance: 0, burn_share: "{{vars.monthly_burn|float}}"}]
+    checks: {min_rows: 2, unique: [as_of, account], not_null: [balance]}
+  invoices:
+    kind: lookup
+    lookup: zoho.invoices
+    description: Zoho Books invoices (numbers issued twice; every row has an invoice, so missing ones are seen
+      only where orders come from the selling system)
+    refresh_minutes: 60
+    args: {page: "{{page}}", since: "{{now|days_before:45|strftime:%Y-%m-%d}}"}
+    pages: {size: 200, max: 25}
+    columns:
+      order_id: "{{item.invoice_id}}"
+      channel: "{{item.salesperson_name|default:books}}"
+      location: "{{item.branch_name|default:main}}"
+      vertical: all
+      dispatched_at: "{{item.date}}"
+      invoice_no: "{{item.invoice_number}}"
+      amount: "{{item.total|float}}"
+      hours_since_dispatch: "{{item.date|hours_since}}"
+    where: {item.status: {not_in: [void, draft]}}
+    checks: {unique: [order_id], not_null: [invoice_no, amount]}

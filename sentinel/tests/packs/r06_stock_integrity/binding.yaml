@@ -1,0 +1,12 @@
+# Tier 2 (ADR-005): the retail domain's words mapped onto generic capabilities, its slots, and what retail never
+# automates. Users and screens keep these words; only the engine speaks in structures.
+domain: retail
+binds:
+- capability: exception_watch
+  map: {subject: article, scope: store, batch: batch}
+  patterns: ["r06_*"]
+- capability: reconciliation
+  map: {side_a: sales_at_retail, side_b: tender_received, period: business_date, scope: store}
+  patterns: [r06_daily_triangle_gap]
+never_automate: [stock.write_off]
+slots: [accountable, shrink_owner, escalation]

@@ -1,0 +1,42 @@
+# Chain A's org with the C1 features (S3): regions over stores, a category tree, time-bound cover,
+# a dotted line from internal audit to loss prevention, a stop list, and vacancy escalation.
+roles:
+  ops_head: {description: Operations head}
+  regional_manager: {description: Regional manager, parent: ops_head}
+  store_manager: {description: Store manager, parent: regional_manager}
+  slp_officer: {description: Loss prevention officer, parent: ops_head}
+  internal_audit: {description: Internal audit, parent: ops_head}
+  supervisor: {description: Triages unmatched events (framework fallback), parent: ops_head}
+  category_buyer: {description: Category buyer, parent: ops_head, dotted: [internal_audit]}
+scopes:
+  store: {rolls_up_to: region, parents: {TVM01: south, TVM02: south, TVM03: south, COK01: central}}
+  category: {parents: {rice: staples, atta: staples, staples: grocery, soap: home_care}}
+stop_at: [ops_head, regional_manager, slp_officer, internal_audit, supervisor, category_buyer]
+vacancy: escalate
+people:
+- {id: meena}
+- {id: priya}
+- {id: arun}
+- {id: kavya}
+- {id: suresh}
+- {id: lakshmi}
+- {id: devi}
+- {id: ganesh}
+- {id: ravi}
+assignments:
+- {person_id: meena, role_id: store_manager, scope: {store: TVM01}, valid_to: 2026-10-25}
+- {person_id: priya, role_id: store_manager, scope: {store: TVM01}, valid_from: 2026-10-25, valid_to: 2026-11-08}
+- {person_id: meena, role_id: store_manager, scope: {store: TVM01}, valid_from: 2026-11-08}
+- {person_id: arun, role_id: store_manager, scope: {store: TVM02}}
+- {person_id: kavya, role_id: slp_officer}
+- {person_id: suresh, role_id: regional_manager, scope: {region: south}}
+- {person_id: lakshmi, role_id: regional_manager, scope: {region: central}}
+- {person_id: devi, role_id: ops_head}
+- {person_id: ganesh, role_id: internal_audit}
+- {person_id: ravi, role_id: category_buyer, scope: {category: staples}}
+authority:
+- {role_id: store_manager, action: task.shelf_check}
+- {role_id: store_manager, action: task.count}
+- {role_id: slp_officer, action: task.count}
+- {role_id: category_buyer, action: task.count}
+- {role_id: ops_head, action: __configure__}

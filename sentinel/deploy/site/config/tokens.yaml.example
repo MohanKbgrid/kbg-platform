@@ -1,0 +1,16 @@
+# Copy to tokens.yaml. Only SHA-256 hashes live here: `docker compose run --rm api new-token`
+# prints a token (give it to the caller) and its hash (put it here).
+tokens:
+  - {sha256: REPLACE_WITH_64_HEX, service: shopify-webhooks}   # may POST /v1/events
+  - {sha256: REPLACE_WITH_64_HEX, person: lead}                # works reviews, subject to RBAC
+edge_secrets_env:
+  ask_ai: SENTINEL_EDGE_ASK_AI
+# Optional single sign-on for the console (OpenID Connect: Keycloak, Entra ID, Google Workspace, Okta ...).
+# People sign in with their company account; only people in the people configuration get in.
+# sso:
+#   issuer: "https://login.example.in/realms/acme"
+#   client_id: sentinel-console
+#   client_secret_env: SENTINEL_OIDC_SECRET
+#   redirect_url: "https://sentinel.example.in/console/sso/callback"
+#   claim: email                # matched to a person's contact.email, else their id
+#   session_hours: 10

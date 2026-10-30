@@ -1,0 +1,94 @@
+# Connector template: Shopify Admin API (custom app, REST 2025-01 + GraphQL for SKU lookups). Check against the store.
+name: shopify
+title: Shopify
+description: >
+  Polls paid orders not yet fulfilled into order.unfulfilled (with hours since payment); a webhook turns
+  failed fulfillment updates into channel.sync_failed. Lookups read an order and resolve a SKU to its
+  inventory item; actions hold and release a fulfillment order (reversible), set available stock, and cancel
+  an order (customer-facing, needs a person). Stock status is not known to Shopify alone: the overlay or a WMS
+  lookup fills it in.
+settings:
+  SENTINEL_SECRET_SHOPIFY_SHOP: the store's myshopify subdomain, e.g. acme-home (without .myshopify.com)
+  SENTINEL_SECRET_SHOPIFY_TOKEN: Admin API access token of a custom app (read_orders, write_orders, write_inventory, write_merchant_managed_fulfillment_orders)
+  SENTINEL_SECRET_SHOPIFY_WEBHOOK: the app's API secret, which signs webhooks (X-Shopify-Hmac-Sha256)
+  SENTINEL_SECRET_SHOPIFY_LOCATION_ID: the Shopify location id stock is set at (Settings > Locations; numeric id)
+events: [order.unfulfilled, channel.sync_failed]
+fingerprints:
+  - {event_type: order.unfulfilled, fields: {channel: channel, location: location, stock: stock_status, order: order_id},
+     buckets: {age: {field: hours_since_paid, edges: [24, 48], labels: ["<24h", "24-48h", ">48h"]}}, group_by: [order]}
+  - {event_type: channel.sync_failed, fields: {channel: channel, operation: operation, error: error_code, order: order_id},
+     group_by: [channel, operation, order]}
+connectors:
+  sources:
+    shopify_unfulfilled:
+      kind: poll
+      every_s: 900
+      description: Paid Shopify orders not yet fulfilled
+      url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/orders.json?status=open&financial_status=paid&fulfillment_status=unfulfilled&limit=250&fields=id,name,processed_at,updated_at,location_id,tags"
+      headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}
+      items: body.orders
+      emit:
+        - type: order.unfulfilled
+          when: {item.processed_at: {exists: true}}
+          key: "shopify:unfulfilled:{{item.id}}:{{item.processed_at|days_since|int}}"
+          payload: {order_id: "{{item.name}}", shopify_id: "{{item.id}}", channel: shopify,
+                    location: "{{item.location_id|default:WH_CHN}}", stock_status: unknown,
+                    hours_since_paid: "{{item.processed_at|hours_since|round:1}}"}
+    shopify_fulfillment_events:          # Shopify webhook topic fulfillment_events/create -> /v1/hooks/shopify_fulfillment_events
+      kind: webhook
+      description: Shopify fulfillment events (failures become sync exceptions)
+      signature: {header: X-Shopify-Hmac-Sha256, secret_env: SENTINEL_SECRET_SHOPIFY_WEBHOOK, encoding: base64}
+      emit:
+        - type: channel.sync_failed
+          when: {body.status: {in: [failure, attempted_delivery]}}
+          key: "shopify:fe:{{body.id}}"
+          payload: {channel: shopify, order_id: "{{body.order_id}}", operation: fulfillment,
+                    error_code: "{{body.status|upper}}", message: "{{body.message|default:}}"}
+  lookups:
+    shopify.order:
+      description: A Shopify order with its lines, fulfillment status and tags (no address)
+      params: {order_id: str}
+      request: {method: GET, url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/orders/{{params.order_id}}.json?fields=id,name,financial_status,fulfillment_status,line_items,tags,cancelled_at",
+                headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}}
+      result: body.order
+    shopify.variant_by_sku:
+      description: The variant and inventory item for a SKU (for stock updates)
+      params: {sku: str}
+      reads_only: true                    # a GraphQL query is sent as POST but changes nothing
+      request:
+        method: POST
+        url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/graphql.json"
+        headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}
+        body: {query: "query($q: String!) { productVariants(first: 1, query: $q) { nodes { id sku inventoryItem { id } } } }",
+               variables: {q: "sku:{{params.sku}}"}}
+      result: body.data.productVariants.nodes
+  actions:
+    shopify.hold_fulfillment:
+      description: Put a fulfillment order on hold (undone by releasing the hold)
+      params: {fulfillment_order_id: str, "reason?": str}
+      request:
+        method: POST
+        url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/fulfillment_orders/{{params.fulfillment_order_id}}/hold.json"
+        headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}
+        body: {fulfillment_hold: {reason: other, reason_notes: "{{params.reason|default:Sentinel}}"}}
+      compensate:
+        method: POST
+        url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/fulfillment_orders/{{params.fulfillment_order_id}}/release_hold.json"
+        headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}
+    shopify.set_available:
+      description: Set the available quantity of an inventory item at a location
+      params: {inventory_item_id: str, location_id: str, available: int}
+      request:
+        method: POST
+        url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/inventory_levels/set.json"
+        headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}
+        body: {inventory_item_id: "{{params.inventory_item_id}}", location_id: "{{params.location_id}}",
+               available: "{{params.available}}"}
+    shopify.cancel_order:
+      description: Cancel a Shopify order and refund it (the customer is told). Cannot be undone.
+      params: {order_id: str, "reason?": str}
+      request:
+        method: POST
+        url: "https://{{env.SENTINEL_SECRET_SHOPIFY_SHOP}}.myshopify.com/admin/api/2025-01/orders/{{params.order_id}}/cancel.json"
+        headers: {X-Shopify-Access-Token: "{{env.SENTINEL_SECRET_SHOPIFY_TOKEN}}"}
+        body: {reason: "{{params.reason|default:inventory}}", email: true, refund: true}

@@ -1,0 +1,73 @@
+# Connector template: Shiprocket (courier aggregator). API v2; check paths and fields against your account.
+name: shiprocket
+title: Shiprocket
+description: >
+  Tracking webhooks become NDR, RTO and lost-shipment events; lookups track an AWB and read an order;
+  actions ask for a re-attempt on an NDR or cancel an order (both reach the customer, so they need a person).
+settings:
+  SENTINEL_SECRET_SHIPROCKET_EMAIL: API user's email (Settings > API > Configure; create a separate API user)
+  SENTINEL_SECRET_SHIPROCKET_PASSWORD: that API user's password
+  SENTINEL_SECRET_SHIPROCKET_WEBHOOK: the token you set for the tracking webhook (sent as x-api-key)
+events: [shipment.ndr, shipment.rto, shipment.lost]
+fingerprints:
+  - {event_type: shipment.ndr, fields: {awb: awb, courier: courier}}
+  - {event_type: shipment.rto, fields: {awb: awb, courier: courier}}
+  - {event_type: shipment.lost, fields: {awb: awb, courier: courier}}
+connectors:
+  auth:
+    shiprocket:
+      url: https://apiv2.shiprocket.in/v1/external/auth/login
+      body: {email: "{{env.SENTINEL_SECRET_SHIPROCKET_EMAIL}}", password: "{{env.SENTINEL_SECRET_SHIPROCKET_PASSWORD}}"}
+      token: body.token
+      ttl_s: 777600                       # tokens last 10 days; fetch a new one after 9
+  sources:
+    shiprocket_tracking:                  # Shiprocket panel: Settings > API > Webhooks -> https://<server>/v1/hooks/shiprocket_tracking
+      kind: webhook
+      description: Shiprocket tracking updates
+      signature: {header: x-api-key, secret_env: SENTINEL_SECRET_SHIPROCKET_WEBHOOK, mode: token}
+      emit:
+        - type: shipment.ndr
+          when: {body.current_status: {in: [UNDELIVERED, NDR, "UNDELIVERED-1ST ATTEMPT", "UNDELIVERED-2ND ATTEMPT", "UNDELIVERED-3RD ATTEMPT"]}}
+          key: "shiprocket:{{body.awb}}:{{body.current_status}}:{{body.current_timestamp}}"
+          payload: {awb: "{{body.awb}}", courier: "{{body.courier_name}}", order_id: "{{body.order_id}}",
+                    status: "{{body.current_status}}", at: "{{body.current_timestamp}}", channel: shiprocket}
+        - type: shipment.rto
+          when: {body.current_status: {in: [RTO INITIATED, RTO IN TRANSIT, RTO DELIVERED]}}
+          key: "shiprocket:{{body.awb}}:{{body.current_status}}"
+          payload: {awb: "{{body.awb}}", courier: "{{body.courier_name}}", order_id: "{{body.order_id}}",
+                    status: "{{body.current_status}}", channel: shiprocket}
+        - type: shipment.lost
+          when: {body.current_status: {in: [LOST, DAMAGED, DESTROYED]}}
+          key: "shiprocket:{{body.awb}}:{{body.current_status}}"
+          payload: {awb: "{{body.awb}}", courier: "{{body.courier_name}}", order_id: "{{body.order_id}}",
+                    status: "{{body.current_status}}", channel: shiprocket}
+  lookups:
+    shiprocket.track_awb:
+      description: Where a shipment is and its scans, by AWB
+      params: {awb: str}
+      request: {method: GET, url: "https://apiv2.shiprocket.in/v1/external/courier/track/awb/{{params.awb}}",
+                headers: {Authorization: "Bearer {{auth.shiprocket}}"}}
+      result: body.tracking_data
+    shiprocket.order:
+      description: A Shiprocket order (status, shipments, address on file), by Shiprocket order id
+      params: {order_id: str}
+      request: {method: GET, url: "https://apiv2.shiprocket.in/v1/external/orders/show/{{params.order_id}}",
+                headers: {Authorization: "Bearer {{auth.shiprocket}}"}}
+      result: body.data
+  actions:
+    shiprocket.ndr_reattempt:
+      description: Ask the courier to attempt delivery again (the customer is contacted). Cannot be undone.
+      params: {awb: str, comments: str}
+      request:
+        method: POST
+        url: "https://apiv2.shiprocket.in/v1/external/ndr/{{params.awb}}/action"
+        headers: {Authorization: "Bearer {{auth.shiprocket}}"}
+        body: {action: re-attempt, comments: "{{params.comments}}"}
+    shiprocket.cancel_order:
+      description: Cancel a Shiprocket order before pickup. Cannot be undone.
+      params: {order_id: str}
+      request:
+        method: POST
+        url: https://apiv2.shiprocket.in/v1/external/orders/cancel
+        headers: {Authorization: "Bearer {{auth.shiprocket}}"}
+        body: {ids: ["{{params.order_id}}"]}
