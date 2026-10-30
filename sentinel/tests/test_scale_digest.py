@@ -36,7 +36,9 @@ def directory():
     data["authority"] += [{"role_id": "store_manager", "action": "stock.adjust", "max_amount": 5000},
                           {"role_id": "ops_head", "action": "stock.adjust"}]
     data.pop("vacancy")
-    return parse_directory(data)
+    d = parse_directory(data)
+    d.clock = lambda: NOW          # the fixture has dated cover periods: ask at the frozen date, never the wall clock
+    return d
 
 
 def engine(threshold=2, money="value"):

@@ -9,6 +9,7 @@ from hypothesis import given, settings, strategies as st
 from sentinel import (ActionRegistry, ActionResult, ActionSpec, Bucket, Event, FingerprintRule, Fingerprinter,
                       ParamError, Pattern, PlaybookStep, Registry, Route, load_registry)
 from sentinel.actions import render
+from sentinel.factrule import name_problem
 from sentinel.lifecycle import ALLOWED, IllegalTransition, can, transition
 from sentinel.models import Incident, IncidentState as S
 from sentinel.registry import RegistryError, ceiling
@@ -47,7 +48,8 @@ def test_blank_event_type_rejected():
 
 
 @settings(max_examples=60)
-@given(st.dictionaries(st.text(min_size=1, max_size=6), st.integers() | st.text(max_size=8), max_size=6))
+@given(st.dictionaries(st.text(min_size=1, max_size=6).filter(lambda k: name_problem(k) is None),
+                       st.integers() | st.text(max_size=8), max_size=6))
 def test_signature_independent_of_key_order(payload):
     fp = Fingerprinter([FingerprintRule(event_type="x", fields={k: k for k in payload})])
     a = Event(type="x", source="s", payload=payload)

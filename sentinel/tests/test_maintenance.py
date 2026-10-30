@@ -57,7 +57,7 @@ def test_retention_archives_then_removes_old_closed_cases(engine_factory, clock,
     assert again["removed"].get("incidents", 0) == 0 and again["archive"] is None
     duckdb = pytest.importorskip("duckdb")
     sql = f"SELECT count(*) FROM read_json_auto('{out['archive']}') WHERE \"table\" = 'incidents'"
-    n = duckdb.sql(sql).fetchone()[0]
+    n = duckdb.connect().execute(sql).fetchone()[0]     # a relation has no fetchone() in newer DuckDB
     assert n == len(old)
 
 
