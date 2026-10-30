@@ -16,15 +16,6 @@ jobs:
       - run: pip install pytest build
       - name: licence files and SPDX headers
         run: python tools/licence_check.py
-      - name: no customer or internal-product names in any public layer
-        env: { KBG_SCRUB_PATTERNS: "${{ secrets.KBG_SCRUB_PATTERNS }}" }
-        run: |
-          # A fork pull request has no access to the secret; every other run must have it, or the check fails.
-          if [ -z "$KBG_SCRUB_PATTERNS" ] && [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
-            echo "::notice::scrub check skipped: a fork pull request cannot read the pattern secret (it runs again after merge)"
-          else
-            python tools/scrub_check.py
-          fi
       - name: tool tests
         run: python -m pytest -q tests
       - name: bases/core tests
@@ -34,6 +25,23 @@ jobs:
       - name: conformance kit self-test
         run: |
           if [ -f gates/__main__.py ]; then python -m gates --selftest; else echo "gate kit not present yet"; fi
+
+  # Its own job, so that a missing pattern secret turns this one check red and does not stop the others from running.
+  scrub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: no customer or internal-product names in any public layer
+        env: { KBG_SCRUB_PATTERNS: "${{ secrets.KBG_SCRUB_PATTERNS }}" }
+        run: |
+          # A fork pull request has no access to the secret; every other run must have it, or the check fails.
+          if [ -z "$KBG_SCRUB_PATTERNS" ] && [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "::notice::scrub check skipped: a fork pull request cannot read the pattern secret (it runs again after merge)"
+          else
+            python tools/scrub_check.py
+          fi
 
   ui-kit:
     runs-on: ubuntu-latest
