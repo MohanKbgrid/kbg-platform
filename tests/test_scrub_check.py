@@ -42,7 +42,7 @@ def test_word_boundary_pattern_does_not_overmatch(tmp_path):
 
 
 def test_unscanned_layer_is_skipped(tmp_path):
-    assert sc.scan(repo(tmp_path, {"website/p.tsx": "zzcustomer"}), PATS) == []
+    assert sc.scan(repo(tmp_path, {"scratch/p.tsx": "zzcustomer"}), PATS) == []
 
 
 def test_log_never_echoes_the_name(tmp_path):

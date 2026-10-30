@@ -4,7 +4,7 @@ Everything a new product needs to inherit the cross-cutting platform: the **cont
 what to build, and the **bases** you copy in as a starting point.
 
 ```
-canon/     the specs — 10 surfaces, 12 doctrines, adoption guides   ← what TRAVELS between products
+canon/     the specs — 9 surfaces and 1 seam, 12 doctrines, adoption guides   ← what TRAVELS between products
 bases/
   core/    domain-free Python primitives to vendor
   ui-kit/  the visual and behavioural language to vendor
@@ -12,7 +12,7 @@ bases/
 
 ## Start here
 
-**[`canon/README.md`](canon/README.md)** — the thesis, the twelve doctrines, the nine surfaces in
+**[`canon/README.md`](canon/README.md)** — the thesis, the twelve doctrines, the nine surfaces (plus the CRM seam) in
 adoption order, the seven questions to ask of any requirement, and the signals that the platform is
 being bypassed.
 
