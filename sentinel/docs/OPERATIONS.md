@@ -403,6 +403,30 @@ item.updated_at, tie: item.id}` - and query `WHERE (updated_at, id) > (%(cursor)
 `{{cursor}}` / `{{cursor_tie}}` in a polled URL): then no row is skipped or re-read. Duplicates are recognised
 per tenant and source, so the same key from two systems is two events.
 
+### CloudEvents (open standard, structured and binary)
+
+`POST /v1/cloudevents` accepts [CloudEvents 1.0](https://cloudevents.io) over HTTP, in both modes, for any system
+or broker that already speaks it. It is the same receiver as `POST /v1/events`: the same service bearer token,
+rate limit and size caps (the body is capped at four times `max_event_bytes`, the payload at `max_event_bytes`),
+and the same idempotency rule.
+
+| CloudEvents | Sentinel event |
+|---|---|
+| `id` | `idempotency_key` (a repeated id from the same `source` is a duplicate, whichever mode it came in) |
+| `source`, `type` | `source`, `type` |
+| `time` | `occurred_at` (RFC 3339 with an offset; absent means now) |
+| `subject` | `payload.ce_subject` |
+| `data` | `payload` (a JSON object as is; any other JSON value as `{"value": ...}`) |
+| extension `tenant`, `correlationid` | `tenant`, `correlation_id` (other extensions are ignored) |
+
+- **Structured:** `Content-Type: application/cloudevents+json`, the whole event as the JSON body (`data_base64`
+  is accepted when it holds JSON).
+- **Binary:** `ce-id`, `ce-type`, `ce-source`, `ce-specversion: 1.0` (and optionally `ce-time`, `ce-subject`)
+  headers, percent-decoded, with the data as the body (`application/json`, or `text/*`).
+- **Refused with a clear message:** a missing or empty `id`, `source`, `type` or `specversion`, a `specversion`
+  other than `1.0`, a `time` that is not RFC 3339 with an offset, a malformed body (400); batch mode,
+  other formats and other data types (415); oversize (413); no or a wrong token (401, 403).
+
 ### "Did not happen by" exceptions (expect sources)
 
 Some exceptions are the absence of something: an indent not received by 05:30, a settlement not filed by

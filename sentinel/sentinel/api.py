@@ -221,6 +221,19 @@ def create_app(engine: Engine, tokens: dict[str, Principal], *, edge_secrets: di
         r = engine.ingest(event)
         return {"status": r.status, "incident_id": r.incident_id, "event_id": r.event_id}
 
+    @app.post("/v1/cloudevents")
+    async def post_cloudevent(request: Request, _: Principal = Depends(service)) -> dict[str, Any]:
+        """A CloudEvents 1.0 event, structured or binary mode (sentinel.cloudevents): same bearer auth, size cap,
+        rate limit and idempotency (the CloudEvents id) as /v1/events."""
+        from .cloudevents import CloudEventError, parse as parse_cloudevent
+        body = await capped_body(request, 4 * engine.max_event_bytes)
+        try:
+            event = parse_cloudevent(dict(request.headers), body)
+        except CloudEventError as e:
+            raise HTTPException(e.status, str(e)) from None
+        r = await run_in_threadpool(engine.ingest, event)
+        return {"status": r.status, "incident_id": r.incident_id, "event_id": r.event_id}
+
     @app.post("/v1/data-trust")
     def post_data_trust(body: dict[str, Any], sp: Principal = Depends(service)) -> dict[str, Any]:
         """A scope's data trust score from monitoring: {scope: {store: TVM01}, score: 0.91, source, components}."""

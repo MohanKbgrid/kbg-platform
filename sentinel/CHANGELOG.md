@@ -32,6 +32,18 @@ Each release entry carries two lines that a client's support record (`docs/templ
 A release is a commit on `main` with the version in `pyproject.toml`; it is never a git tag. Consumers pin by
 commit SHA. `tests/test_changelog.py` refuses an entry without both lines. Entries before v0.14.3 are unclassified.
 
+## Unreleased: W8 open standards, part 1
+
+**Class:** Compatible (every part is additive and ships switched off or unused: a new endpoint, new files, an
+optional extra. No existing behaviour, contract or test changes).
+**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`. (The version heading
+is assigned when this is released.)
+
+- **CloudEvents 1.0 receiver (`sentinel.cloudevents`, `POST /v1/cloudevents`).** Structured and binary HTTP modes
+  map `id` to the idempotency key and `type`, `source`, `time`, `subject`, `data` into the existing event
+  envelope, with the bearer auth, size caps, rate limit and duplicate rules of `/v1/events`. Malformed events
+  get a 4xx that names the problem. The old format and endpoint are untouched.
+
 ## v0.24.0 (2026-10-20)
 
 **Class:** Compatible (every part is opt-in: a policy key, `data_trust` in defaults, `spot_check_rate`, `claims`.
