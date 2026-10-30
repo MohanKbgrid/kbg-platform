@@ -5,17 +5,23 @@
 Read `docs/canon/README.md` first. This package does not replace the specs; it makes six of their
 doctrines hard to violate by accident. Everything else is yours to build against the contract.
 """
-from .authority import Authority, Decision, PermissionDenied
+from .authority import BLOCK_KINDS, NO_RULE, Authority, Decision, PermissionDenied
 from .idem import capture_id, is_client_minted
-from .outbox import Mode, Outbox, OutboxRow, OutboxStore, State
+from .job_run import JobRunStore, Run, arecord, record
+from .outbox import (AsyncOutbox, AsyncOutboxStore, Mode, Outbox, OutboxRow, OutboxStore,
+                     RetryPolicy, State, Transition, decide)
+from .rbac_shadow import MemoryRecorder, RbacShadow, RoutePermission, coverage_report, route_table
 from .result import Gap, GapError, Outcome, Resolved, all_resolved, gaps
 from .versioned import VersionedRecord, VersionedStore, VersionedWriter, WriteResult
 
 __version__ = "0.1.0"
 __all__ = [
-    "Authority", "Decision", "PermissionDenied",
+    "Authority", "Decision", "PermissionDenied", "BLOCK_KINDS", "NO_RULE",
     "Gap", "GapError", "Outcome", "Resolved", "all_resolved", "gaps",
-    "Mode", "Outbox", "OutboxRow", "OutboxStore", "State",
+    "Mode", "Outbox", "AsyncOutbox", "OutboxRow", "OutboxStore", "AsyncOutboxStore", "State",
+    "RetryPolicy", "Transition", "decide",
+    "MemoryRecorder", "RbacShadow", "RoutePermission", "coverage_report", "route_table",
+    "JobRunStore", "Run", "arecord", "record",
     "VersionedRecord", "VersionedStore", "VersionedWriter", "WriteResult",
     "capture_id", "is_client_minted",
 ]
