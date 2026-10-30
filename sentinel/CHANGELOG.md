@@ -36,7 +36,8 @@ commit SHA. `tests/test_changelog.py` refuses an entry without both lines. Entri
 
 **Class:** Compatible (every part is additive and ships switched off or unused: a new endpoint, new files, an
 optional extra. No existing behaviour, contract or test changes).
-**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`; point your editor at `schemas/` (`docs/SCHEMAS.md`); read `docs/asyncapi.yaml`. (The version heading
+**Adopt:** nothing is required. To use the pieces: send CloudEvents to `POST /v1/cloudevents`; point your editor at `schemas/` (`docs/SCHEMAS.md`); read `docs/asyncapi.yaml`; to try traces, `pip install "kbg-sentinel[otel]"` and set `SENTINEL_OTEL=1`
+(`docs/OPERATIONS.md`, Traces). (The version heading
 is assigned when this is released.)
 
 - **CloudEvents 1.0 receiver (`sentinel.cloudevents`, `POST /v1/cloudevents`).** Structured and binary HTTP modes
@@ -53,6 +54,13 @@ is assigned when this is released.)
 - **AsyncAPI 3.0 event contracts (`docs/asyncapi.yaml`, `scripts/gen_asyncapi.py`).** The canonical envelope, the
   CloudEvents form and a message per event type the shipped templates and connectors use, generated from the code
   and the shipped YAML; a test fails when the file drifts or a reference stops resolving.
+
+- **OpenTelemetry traces with the GenAI semantic conventions (`sentinel.otel`, extra `otel`).** Off unless
+  `SENTINEL_OTEL=1` (or `otel.configure()`); never a hard import. A `sentinel.case.handle` span per case with a
+  `chat <model>` child per model call carrying `gen_ai.*` attributes (system, request/response model, input and
+  output tokens, operation name). Prompts and replies are never in spans unless `SENTINEL_OTEL_CAPTURE_CONTENT=1`.
+  Prometheus metrics are unchanged. Touches `Engine._drive` (now a thin wrapper around `_drive_case`, same
+  behaviour) and `MeteredClient.complete`.
 
 ## v0.24.0 (2026-10-20)
 

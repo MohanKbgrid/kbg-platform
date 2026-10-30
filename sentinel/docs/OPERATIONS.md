@@ -960,6 +960,28 @@ Prometheus does).
 (`sentinel.engine`, `sentinel.worker`) with incident and review ids; secret-looking keys are redacted in
 logs and in the audit trail.
 
+### Traces (OpenTelemetry, optional)
+
+Beside the Prometheus metrics, Sentinel can emit OpenTelemetry traces using the GenAI semantic conventions. It is
+**off** unless asked for, and needs the optional extra: `pip install "kbg-sentinel[otel]"` (the API and SDK).
+
+- Turn it on with `SENTINEL_OTEL=1` in the environment of the API and the workers. If the extra is not installed,
+  Sentinel logs one warning and runs without traces; it never fails on it.
+- Sentinel uses the global tracer provider, so you choose the exporter the usual way: set up the SDK in your
+  entry point, or run under `opentelemetry-instrument` with the `OTEL_*` variables. Sentinel does not pick a
+  backend for you.
+- **Spans.** `sentinel.case.handle` for each case handled (attributes `sentinel.incident_id`, `sentinel.pattern_id`,
+  `sentinel.tenant`, `sentinel.route`, and `sentinel.state` at the end; the case facts are not attached), and under it one
+  `chat <model>` span per model call with `gen_ai.operation.name`, `gen_ai.system`, `gen_ai.provider.name`,
+  `gen_ai.request.model`, `gen_ai.response.model` (the model that actually answered, after a fallback),
+  `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` (when the provider reports them), `error.type` and an
+  error status on failure, plus `sentinel.task` and `sentinel.shadow`.
+- **Prompts and replies are not in spans.** That is Sentinel's privacy rule everywhere. Only the explicit opt-in
+  `SENTINEL_OTEL_CAPTURE_CONTENT=1` adds `gen_ai.system_instructions`, `gen_ai.input.messages` and
+  `gen_ai.output.messages`; they can hold personal data and business facts, so use it only with a backend you would
+  trust with the cases themselves.
+- From code that embeds Sentinel: `sentinel.otel.configure(tracer_provider=..., capture_content=False)`.
+
 ## Backups, restores and retention
 
 The site bundle's `maintenance` service backs up the database every night at `BACKUP_AT`, checks the
