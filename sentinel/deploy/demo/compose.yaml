@@ -1,0 +1,39 @@
+# The Sentinel demo (Acme Retail, synthetic data, stub model) in one container.
+#
+#   cd sentinel/deploy/demo && docker compose up --build
+#   then open http://localhost:8080/console and paste a token from the log lines.
+#
+# NOT YET RUN: this file was written and its YAML checked in a container with no Docker daemon. Run it once
+# on a laptop (see README.md) before anything points people at it.
+#
+# No database, no API key, no network at run time: the data is invented, the model is a labelled stub and
+# the SQLite file lives inside the container (gone when it stops). The port is published on 127.0.0.1 only,
+# because the demo's tokens are public.
+name: sentinel-demo
+
+services:
+  demo:
+    build:
+      context: ../..                 # the sentinel/ folder: the Dockerfile copies pyproject.toml and sentinel/
+      dockerfile: deploy/Dockerfile
+    image: kbg-sentinel-demo:local
+    entrypoint: ["python", "-m", "sentinel.demo"]
+    command: ["--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    read_only: true
+    tmpfs:
+      - /tmp                         # the temporary demo database
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_signal: SIGINT
+    stop_grace_period: 10s
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
