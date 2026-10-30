@@ -585,7 +585,7 @@ def main(argv: list[str] | None = None) -> int:
         from .envsecrets import lookup
         key = lookup(KEY_ENV)
         if not key:
-            print(f"error: set {KEY_ENV} to the site's usage key (the value used when the export was made)", file=sys.stderr)
+            print(f"error: set {KEY_ENV} to the key the export was signed with", file=sys.stderr)
             return 2
         probs = verify(json.loads(Path(a.file).read_text(encoding="utf-8")), key)
         _p({"ok": not probs, "problems": probs})
