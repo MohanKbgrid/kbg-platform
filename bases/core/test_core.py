@@ -221,6 +221,28 @@ check("production queues rather than holds",
       prod.enqueue(topic="t", source_key="k", payload={}).state, State.QUEUED)
 check_raises("marking a failure with no error is refused (no swallowed errors)",
              ValueError, lambda: uat.mark_failed(row, ""))
+check_raises("a HELD row cannot be marked confirmed: it was never sent",
+             ValueError, lambda: uat.mark_confirmed(row, {}))
+check("...and it is still HELD with no attempt used", (row.state, row.attempts), (State.HELD, 0))
+_dl = Outbox(Mode.PRODUCTION, MemStore(), RetryPolicy(max_attempts=3))
+_r = _dl.enqueue(topic="t", source_key="DL", payload={})
+for _ in range(7):
+    _dl.mark_failed(_r, "boom")
+for _bad in ("\u200b", "\ufeff \u200d", 123):
+    check_raises(f"a denial reason of {_bad!r} is no reason", ValueError, lambda b=_bad: Decision.deny(b))
+_g = Outbox(Mode.PRODUCTION, MemStore())
+_a = _g.enqueue(topic="t", source_key="G", payload={})
+_g.settle(_a, {"ok": True})
+_b = _g.enqueue(topic="t", source_key="G", payload={"again": 1})
+check("re-enqueueing a CONFIRMED key returns the same row, untouched",
+      (_b is _a, _b.state, _b.payload), (True, State.CONFIRMED, {}))
+check("repeated mark_failed dead-letters at the policy ceiling and stops counting",
+      (_r.state, _r.attempts), (State.DEAD_LETTER, 3))
+_ok = Outbox(Mode.PRODUCTION, MemStore())
+_c = _ok.enqueue(topic="t", source_key="OK", payload={})
+_ok.settle(_c, {"ok": True})
+_ok.settle(_c, {"ok": False, "error": "late duplicate"})
+check("a late failure cannot resurrect a CONFIRMED row", (_c.state, _c.attempts), (State.CONFIRMED, 1))
 
 
 # ── the outbox STATE MACHINE — the rules a drain loop gets wrong ──────────────────────────
@@ -347,6 +369,26 @@ async def r1_async():
         check("async mark_failed with no error is refused", "no raise", "ValueError")
     except ValueError:
         check("async mark_failed with no error is refused", "ValueError", "ValueError")
+
+    # terminal states hold, and mark_* respect the same rules as settle
+    tst = AMemStore()
+    tbox = AsyncOutbox(Mode.PRODUCTION, tst, RetryPolicy(max_attempts=3))
+    t = await tbox.enqueue(topic="t", source_key="T1", payload={})
+    for _ in range(5):
+        await tbox.mark_failed(t, "boom")
+    check("async: repeated mark_failed reaches DEAD_LETTER at the ceiling and stops counting",
+          (t.state, t.attempts), (State.DEAD_LETTER, 3))
+    c = await tbox.enqueue(topic="t", source_key="T2", payload={})
+    await tbox.settle(c, {"ok": True})
+    await tbox.settle(c, {"ok": False, "error": "late duplicate"})
+    check("async: a late failure cannot resurrect a CONFIRMED row", (c.state, c.attempts), (State.CONFIRMED, 1))
+    hb = AsyncOutbox(Mode.UAT, AMemStore())
+    hr = await hb.enqueue(topic="t", source_key="H1", payload={})
+    try:
+        await hb.mark_confirmed(hr, {})
+        check("async: a HELD row cannot be marked confirmed", "no raise", "ValueError")
+    except ValueError:
+        check("async: a HELD row cannot be marked confirmed", (hr.state, hr.attempts), (State.HELD, 0))
 
 
 asyncio.run(r1_async())

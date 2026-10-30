@@ -1,0 +1,36 @@
+name: scrub
+# Its own workflow with no path filter: a change to any file, in any directory, is scanned. The check covers
+# every tracked file, not a list of layers, so a new top-level file cannot be missed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions: { contents: read }
+jobs:
+  scrub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: licence files and SPDX headers (every change, every path)
+        run: python tools/licence_check.py
+      - name: no customer or internal-product names in any tracked file
+        env:
+          KBG_SCRUB_PATTERNS: "${{ secrets.KBG_SCRUB_PATTERNS }}"
+          BASE_REF: "${{ github.base_ref }}"
+          IS_FORK: "${{ github.event.pull_request.head.repo.fork }}"
+        run: |
+          # A fork pull request cannot read the secret; it is scanned again after merge.
+          if [ -z "$KBG_SCRUB_PATTERNS" ] && [ "$IS_FORK" = "true" ]; then
+            echo "::notice::scrub skipped: a fork pull request cannot read the pattern secret (it runs again after merge)"
+            exit 0
+          fi
+          # The secret is only ever given to the checker that is already on the base branch, never to code
+          # a pull request has just changed. (The first pull request into a base without the checker uses its own.)
+          script=tools/scrub_check.py
+          if [ -n "$BASE_REF" ] && git show "origin/$BASE_REF:tools/scrub_check.py" > "$RUNNER_TEMP/scrub_check.py" 2>/dev/null; then
+            script="$RUNNER_TEMP/scrub_check.py"
+          fi
+          python "$script" --root "$PWD"

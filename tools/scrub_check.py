@@ -23,7 +23,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-PUBLIC_LAYERS = ("canon", "gates", "bases", "sentinel", "docs", "tools", "tests", "README.md", "NOTICE", "LICENSE-docs")
 BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".pdf", ".gz", ".zip", ".db"}
 
 
@@ -44,8 +43,6 @@ def tracked(root: Path) -> list[str]:
 def scan(root: Path, patterns: list[re.Pattern[str]]) -> list[str]:
     hits: list[str] = []
     for rel in tracked(root):
-        if not rel.startswith(PUBLIC_LAYERS):
-            continue
         for pat in patterns:
             if pat.search(rel):
                 hits.append(f"{rel}: file name matches a scrub pattern")

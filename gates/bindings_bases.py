@@ -8,11 +8,9 @@ statement. Run it with
     python -m gates --bindings gates.bindings_bases
 
 Gates the base can be a subject of are bound to adapters over its real primitives (`Authority`,
-`Outbox` with `decide()`, `VersionedWriter`, `capture_id`). Two gates are bound as a `Gap` with
-`appeared`, because the base does not carry the fact yet: RBAC-5 and RBAC-9 need a denial `kind`
-(canon divergence register, W5 item H2). When the base grows a `kind`, those gaps turn into FAILs
-until the bindings are written, so a gap cannot outlive its cause. Every other gate is unbound
-here: the base has no code mapping, tenancy, ledger or agent concept to judge.
+`Outbox` with `decide()`, `VersionedWriter`, `capture_id`). RBAC-5 and RBAC-9 are bound to `Decision.deny(kind=...)`;
+`_kind_gap` is kept only to test the `appeared` mechanism (a gap turns into a FAIL once the fact exists, so a gap cannot
+outlive its cause). Every other gate is unbound here: the base has no code mapping, tenancy, ledger or agent concept to judge.
 """
 from __future__ import annotations
 
@@ -104,7 +102,7 @@ class BaseKindSubject:
 # ------------------------------------------------------------------------------ Integration (Outbox)
 
 class BaseOutboxSubject:
-    """INT-4, 5, 7, 8, 9 over `Outbox` and `decide()`; the dispatcher loop is the adapter's (the base owns the rules)."""
+    """INT-4, 5, 7, 8, 9 over `Outbox` and `decide()`; every transition is the base's own (settle / release_held)."""
 
     def __init__(self) -> None:
         k, ob = _base()
@@ -152,25 +150,24 @@ class BaseOutboxSubject:
         return self.failures
 
     def dispatch(self):
+        """Drive the BASE: release_held when the gate opens, then settle() every row. The adapter owns only the far
+        side (a counter and a switch); every state change comes from Outbox itself, so a defect in the base is judged."""
         State = self.k.State
         code = 0
         for row in list(self.rows.values()):
             if row.state in (State.CONFIRMED, State.DEAD_LETTER):
                 continue
-            if not self.box.mode.may_send:
-                result = self.box.held_result()
-            else:
+            if self.box.mode.may_send:
+                self.box.release_held(row)
                 self.calls += 1
                 result = {"ok": False, "error": "far side refused"} if self.far_error else {"ok": True}
-            t = self.ob.decide(result=result, attempts=row.attempts)
-            if t.counts_as == "held":
-                row.state = State.HELD
             else:
-                row.state = t.state
-            if t.increment_attempts:
-                row.attempts += 1
-            if t.counts_as in ("failed", "dead_letter"):
-                row.last_error = t.reason
+                result = self.box.held_result()
+                if row.state is State.QUEUED:
+                    row.state = State.HELD          # a row queued before the gate shut is held, not sent
+            before = row.attempts
+            self.box.settle(row, result)
+            if row.state in (State.FAILED, State.DEAD_LETTER) and row.attempts > before:
                 self.failures += 1
                 code = 1
         return code

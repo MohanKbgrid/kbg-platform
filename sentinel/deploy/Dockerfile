@@ -1,5 +1,5 @@
 # kbg-sentinel runtime image: API, workers, analytics, gateway. Open source throughout.
-#   docker build -f deploy/Dockerfile -t kbg-sentinel:0.11 .
+#   docker build -f deploy/Dockerfile -t kbg-sentinel:<version> .
 # Overlays (e.g. acme_sentinel) are mounted at /overlay (see site/compose.yaml) or installed with
 #   --build-arg OVERLAY_PIP="<pip spec>"
 # Behind a TLS-inspecting corporate proxy, pass its CA for the build only (it is not kept in the image):
@@ -23,7 +23,7 @@ RUN --mount=type=secret,id=ca \
     && rm -f /usr/local/share/ca-certificates/build-ca.crt && update-ca-certificates --fresh >/dev/null
 
 WORKDIR /app
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY sentinel ./sentinel
 RUN --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export PIP_CERT=/run/secrets/ca SSL_CERT_FILE=/run/secrets/ca; fi; \

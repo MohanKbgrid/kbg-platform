@@ -41,8 +41,10 @@ def test_word_boundary_pattern_does_not_overmatch(tmp_path):
     assert sc.scan(repo(tmp_path / "b", {"docs/a.md": "qqcorporate is fine"}), PATS) == []
 
 
-def test_unscanned_layer_is_skipped(tmp_path):
-    assert sc.scan(repo(tmp_path, {"scratch/p.tsx": "zzcustomer"}), PATS) == []
+def test_every_tracked_file_is_scanned_wherever_it_lives(tmp_path):
+    # a name in a top-level file, a hidden directory or a new directory must be found: no list of layers to fall out of date
+    for path in ("CLAUDE.md", ".github/workflows/x.yml", "scratch/p.tsx", "mkdocs.yml"):
+        assert sc.scan(repo(tmp_path / path.replace("/", "_"), {path: "zzcustomer"}), PATS), path
 
 
 def test_log_never_echoes_the_name(tmp_path):

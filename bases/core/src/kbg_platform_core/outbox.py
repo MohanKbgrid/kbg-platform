@@ -194,6 +194,11 @@ class _OutboxCore:
         A held result changes NOTHING about the attempt count and does not move the row out of
         its HELD/QUEUED state; it only refreshes the reason. Every other outcome follows the
         transition, and a recorded failure always carries its error (D7)."""
+        if row.state in (State.CONFIRMED, State.DEAD_LETTER):
+            # Terminal. A late or duplicate result for a delivered row must not resurrect it (a retry would then
+            # send the document twice); a dead-lettered row waits for a person, not for the next result.
+            return Transition(row.state, False, False, "ignored",
+                              f"row is {row.state.value}; a further result changes nothing")
         t = decide(result=result, attempts=row.attempts, policy=self.policy)
         if t.counts_as == "held":
             row.held_reason = t.reason
@@ -216,13 +221,23 @@ class _OutboxCore:
             return True
         return False
 
-    @staticmethod
-    def _fail(row: OutboxRow, error: str) -> None:
+    def _fail(self, row: OutboxRow, error: str) -> None:
         if not error:
             raise ValueError("a failure must carry its error; a swallowed error is a false green")
-        row.state = State.FAILED
+        if row.state in (State.CONFIRMED, State.DEAD_LETTER):
+            return                                    # terminal: see _apply
         row.attempts += 1
+        row.state = State.DEAD_LETTER if row.attempts >= self.policy.max_attempts else State.FAILED
         row.last_error = error
+
+    @staticmethod
+    def _confirm(row: OutboxRow, detail: Optional[dict]) -> None:
+        if row.state is State.HELD:
+            raise ValueError("a HELD row was never sent: it cannot be confirmed while the gate holds it "
+                             "(release it first, then dispatch)")
+        row.state = State.CONFIRMED
+        row.held_reason = None
+        row.detail.update(detail or {})
 
 
 class Outbox(_OutboxCore):
@@ -260,8 +275,7 @@ class Outbox(_OutboxCore):
         return row
 
     def mark_confirmed(self, row: OutboxRow, detail: Optional[dict] = None) -> OutboxRow:
-        row.state = State.CONFIRMED
-        row.detail.update(detail or {})
+        self._confirm(row, detail)
         saved = self.store.upsert(row)
         _refuse_awaitable(saved, "upsert")
         return saved
@@ -295,8 +309,7 @@ class AsyncOutbox(_OutboxCore):
         return row
 
     async def mark_confirmed(self, row: OutboxRow, detail: Optional[dict] = None) -> OutboxRow:
-        row.state = State.CONFIRMED
-        row.detail.update(detail or {})
+        self._confirm(row, detail)
         return await self.store.upsert(row)
 
     async def mark_failed(self, row: OutboxRow, error: str) -> OutboxRow:

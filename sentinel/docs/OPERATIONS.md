@@ -763,7 +763,7 @@ with a token hash, allowed models, `per_minute` and `max_concurrent`, inside a m
 `max_concurrent`. Only chat and embedding endpoints are forwarded (never pull, delete, create, push);
 streaming is refused. A request waiting longer than `queue_timeout_s` gets 503, so the site falls back
 to Claude instead of waiting. `GET /usage` (admin token) and the monthly `usage-YYYY-MM.jsonl` ledger give
-tokens per customer and model for billing. Prompts and replies are never logged or stored.
+tokens per customer and model, for cost tracking. Prompts and replies are never logged or stored.
 
 ## Analytics
 

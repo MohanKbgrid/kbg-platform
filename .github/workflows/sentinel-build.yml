@@ -22,7 +22,14 @@ jobs:
       - run: python -m twine check dist/*
       - name: no licence or billing code in the distribution
         run: |
-          if unzip -l dist/*.whl | grep -Ei "sentinel/(licence|billing)\.py"; then exit 1; fi
+          for f in dist/*.whl; do if unzip -l "$f" | grep -Ei "(licence|billing)[^/]*\.py"; then exit 1; fi; done
+          for f in dist/*.tar.gz; do if tar tzf "$f" | grep -Ei "(licence|billing)[^/]*\.py"; then exit 1; fi; done
+      - name: LICENSE and NOTICE travel inside the wheel and the sdist (Apache-2.0 section 4)
+        run: |
+          unzip -l dist/*.whl | grep -E "dist-info/(licenses/)?LICENSE" 
+          unzip -l dist/*.whl | grep -E "dist-info/(licenses/)?NOTICE"
+          tar tzf dist/*.tar.gz | grep -E "/LICENSE$"
+          tar tzf dist/*.tar.gz | grep -E "/NOTICE$"
       - name: the wheel installs and the CLI runs
         run: |
           python -m venv /tmp/v && /tmp/v/bin/pip install -q dist/*.whl

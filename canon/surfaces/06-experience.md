@@ -94,7 +94,7 @@ something that did not exist before (D6).
 
 | What | Why | Cost |
 |---|---|---|
-| ⛔ **"Pricing is central" is violated.** The field bill accepts a client-supplied `unit_price`; the pricing engine reads a table with 0 rows and no field path calls it. | Historical: capture was built before the pricing model was settled. | Every downstream number — scheme, discount, tax, margin, incentive — inherits whatever the client sent. **Open and unresolved.** |
-| The eight states are **not all distinctly implemented** — a shared `DataState` covers loading/empty/error; partial-failure, stale and too-much are still absent. | Screens predate the contract. | Those three states fall back to a generic error or an empty list. |
-| ✅ **Closing:** the base's states are now **vendored and in use** (`src/vendor/kbg-ui-kit/`). `DeniedState` replaced a vanishing toast on Dispatch verification — the denial now persists with its reason and `whoCan`. Remaining screens follow as they are touched. | | |
-| _Conforms on_ — server-side rank-before-page (a real bug fixed), offline idempotency by client-minted id, a sync indicator that cannot report synced with a queue. | | |
+| ⛔ **"Pricing is central" is easy to violate.** A capture path that accepts a client-supplied unit price bypasses the pricing engine. | Capture is often built before the pricing model is settled. | Every downstream number (scheme, discount, tax, margin, incentive) inherits whatever the client sent. Route capture through the pricing engine, or record the exception. |
+| The eight states are **not all distinctly implemented** in a product that predates the contract: a shared data state may cover loading, empty and error, while partial-failure, stale and too-much are absent. | Screens predate the contract. | Those states fall back to a generic error or an empty list. |
+| ✅ **Closing:** the base's states are vendored; a persistent `DeniedState` (with its reason and `whoCan`) replaces a vanishing toast. Remaining screens follow as they are touched. | | |
+| _Conforms on_ — server-side rank-before-page, offline idempotency by client-minted id, a sync indicator that cannot report synced with a queue. | | |

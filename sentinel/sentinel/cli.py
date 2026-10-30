@@ -382,7 +382,7 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--apply", action="store_true")
     va = sub.add_parser("value", help="time and money saved per exception")
     va.add_argument("--days", type=int, default=30)
-    us = sub.add_parser("usage", help="signed monthly usage export for billing")
+    us = sub.add_parser("usage", help="signed monthly usage export")
     us.add_argument("--month", default=None, help="YYYY-MM (default: last month)")
     us.add_argument("--reversal-days", type=int, default=7)
     us.add_argument("--out", default=None, help="write the export to this file")
@@ -585,7 +585,7 @@ def main(argv: list[str] | None = None) -> int:
         from .envsecrets import lookup
         key = lookup(KEY_ENV)
         if not key:
-            print(f"error: set {KEY_ENV} to the site's usage key", file=sys.stderr)
+            print(f"error: set {KEY_ENV} to the site's usage key (the value used when the export was made)", file=sys.stderr)
             return 2
         probs = verify(json.loads(Path(a.file).read_text(encoding="utf-8")), key)
         _p({"ok": not probs, "problems": probs})

@@ -32,6 +32,9 @@ REQUIRED = {
 }
 
 
+PACKAGE_DIRS = ("sentinel", "bases/core", "bases/ui-kit")
+
+
 def tracked_files(root: Path) -> list[str]:
     try:
         out = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True, stderr=subprocess.DEVNULL)
@@ -48,6 +51,14 @@ def check(root: Path) -> list[str]:
             problems.append(f"missing {name}")
         elif needle not in f.read_text(encoding="utf-8", errors="replace"):
             problems.append(f"{name} does not contain {needle!r}")
+    # Each published package ships its own copy: a wheel, sdist, npm package or image cannot reach the repository root.
+    for pkg in PACKAGE_DIRS:
+        for name in ("LICENSE", "NOTICE"):
+            f, top = root / pkg / name, root / name
+            if not f.is_file():
+                problems.append(f"{pkg}/{name} missing (published packages must carry it)")
+            elif top.is_file() and f.read_bytes() != top.read_bytes():
+                problems.append(f"{pkg}/{name} differs from the root {name}")
     for rel in tracked_files(root):
         if rel.startswith(SKIP_PREFIXES) or SKIP_PARTS & set(Path(rel).parts):
             continue

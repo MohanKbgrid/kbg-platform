@@ -14,7 +14,7 @@ KBG Platform is two things that work together:
 canon/      the specs: 9 surfaces and 1 seam, 12 doctrines, adoption guides      (read, CC BY 4.0)
 gates/      the conformance kit: runnable gate tests per canon surface            (run against your product)
 bases/      code you COPY into a product and own: Python core, React UI kit      (vendor it)
-sentinel/   the agentic framework                                                (pip install it)
+sentinel/   the agentic framework                                                (from source until the first release; see below)
 docs/       one documentation site for every layer
 tools/      licence, scrub and vendoring checks
 ```

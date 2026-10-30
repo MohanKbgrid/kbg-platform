@@ -126,5 +126,5 @@ inherited by every domain that adopts it:
 
 | What | Why | Cost |
 |---|---|---|
-| `ai_draft` holds **0 rows**; the provider is a labelled stub | No live AI traffic; no provider contracted. | Grounding behaviour is proven against fixtures, not a real model. The stub is labelled, so this is visible rather than a false green. |
-| _Conforms on_ — the negative proof that no path exists from draft to posted document without a named human, per-field confidence, acceptance-rate measurement, config-driven capabilities. 127/127. | | |
+| `ai_draft` may hold no rows; the provider is a labelled stub | No live AI traffic; no provider contracted. | Grounding behaviour is proven against fixtures, not a real model. The stub is labelled, so this is visible rather than a false green. |
+| _Conforms on_ — the negative proof that no path exists from draft to posted document without a named human, per-field confidence, acceptance-rate measurement, config-driven capabilities. | | |

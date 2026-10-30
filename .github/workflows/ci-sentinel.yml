@@ -2,9 +2,9 @@ name: ci-sentinel
 on:
   push:
     branches: [main]
-    paths: ["sentinel/**", ".github/workflows/ci-sentinel.yml", ".github/workflows/release-sentinel.yml"]
+    paths: ["sentinel/**", ".github/workflows/ci-sentinel.yml", ".github/workflows/release-sentinel.yml", ".github/workflows/sentinel-build.yml"]
   pull_request:
-    paths: ["sentinel/**", ".github/workflows/ci-sentinel.yml", ".github/workflows/release-sentinel.yml"]
+    paths: ["sentinel/**", ".github/workflows/ci-sentinel.yml", ".github/workflows/release-sentinel.yml", ".github/workflows/sentinel-build.yml"]
 permissions: { contents: read }
 defaults:
   run: { working-directory: sentinel }

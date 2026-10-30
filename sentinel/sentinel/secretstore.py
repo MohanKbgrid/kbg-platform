@@ -166,10 +166,10 @@ _NAME_RE = r"SENTINEL_(?:SECRET|EDGE)_[A-Z0-9_]+"
 # Keys the platform itself uses (optional: each turns on a feature)
 PLATFORM = {
     "SENTINEL_SECRET_AUDIT_KEY": ("audit trail", "signs the sealed audit chain (any long random value)"),
-    "SENTINEL_SECRET_USAGE_KEY": ("usage export", "signs the monthly usage export; KBGrid holds the same value"),
+    "SENTINEL_SECRET_USAGE_KEY": ("usage export", "signs the monthly usage export (any long random value; you hold it and verify with it)"),
     "SENTINEL_SECRET_BUNDLE_KEY": ("configuration bundles", "signs bundles moved between environments"),
     "SENTINEL_SECRET_SCIM_TOKEN": ("SCIM", "the bearer token the company directory uses for /scim/v2"),
-    "SENTINEL_SECRET_CATALOGUE_KEY": ("pack catalogue", "checks the signature of KBGrid's pack catalogue"),
+    "SENTINEL_SECRET_CATALOGUE_KEY": ("pack catalogue", "checks the signature of a pack catalogue"),
 }
 
 

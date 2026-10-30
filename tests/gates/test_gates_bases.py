@@ -36,3 +36,17 @@ def test_the_gate_goes_red_against_a_broken_real_base_dispatcher():
                     r.attempts += 1
             return code
     assert BY_ID["INT-9"].logic(Broken())
+
+
+def test_the_gate_goes_red_when_the_base_itself_is_broken(monkeypatch):
+    """The adapter drives Outbox.settle/release_held, so a defect inside the base (not the adapter) is judged."""
+    from kbg_platform_core import outbox as ob
+    real = ob._OutboxCore._apply
+
+    def held_burns_an_attempt(self, row, result):
+        t = real(self, row, result)
+        if t.counts_as == "held":
+            row.attempts += 1
+        return t
+    monkeypatch.setattr(ob._OutboxCore, "_apply", held_burns_an_attempt)
+    assert BY_ID["INT-9"].logic(bb.BaseOutboxSubject())

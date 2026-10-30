@@ -30,6 +30,7 @@ PRECONDITION = "PRECONDITION"
 READINESS = "READINESS"
 APPROVAL_PENDING = "APPROVAL_PENDING"
 COMPLETED = "COMPLETED"
+_INVISIBLE = {ord(c): None for c in "\u200b\u200c\u200d\u2060\u2062\u2063\ufeff\u00ad"}
 BLOCK_KINDS = (AUTHORITY, STATE_GATE, CONFIG_GATE, PRECONDITION, READINESS, APPROVAL_PENDING,
                COMPLETED)
 
@@ -62,7 +63,11 @@ class Decision:
             if self.kind is not None:
                 raise ValueError("an allow does not carry a denial kind")
             return
-        if not (self.reason or "").strip():          # None, "" and whitespace-only are all "no reason"
+        reason = self.reason
+        if reason is not None and not isinstance(reason, str):
+            raise ValueError("a denial reason must be text")
+        # None, "", whitespace-only and invisible-character-only (zero-width space etc.) are all "no reason"
+        if not (reason or "").translate(_INVISIBLE).strip():
             raise ValueError(
                 "a denial must carry a reason - a silently disabled control is the thing this "
                 "class exists to prevent")
